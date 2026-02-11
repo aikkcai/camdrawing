@@ -11,11 +11,11 @@ margin: 0px;
   width: 500px;
   border: 0px;
    position: absolute;
-  background-repeat: no-repeat;
-  background-position: left top;
+  background-repeat: no-repeat; /* 避免圖片重複顯示 */
+  background-position: left top; /* 将背景图像左上角对齐 */
   z-index: 1;
   opacity: 0.5;
-  transform-origin: left top;
+   transform-origin: left top; /* 缩放操作的原点在左上角 */
   
 }
 
@@ -27,13 +27,14 @@ margin: 0px;
   border: 0px;
    position: absolute;
   border: 1px solid red;
-  background-repeat: no-repeat;
-  background-position: left top;
+  background-repeat: no-repeat; /* 避免圖片重複顯示 */
+  background-position: left top; /* 将背景图像左上角对齐 */
   z-index: 9999;
   opacity: 1;
-  transform-origin: left top;
+   transform-origin: left top; /* 缩放操作的原点在左上角 */
     
 }
+
 
  #video-container {
 		position: relative;
@@ -41,7 +42,7 @@ margin: 0px;
 		height: 734px;
 		margin: 0 auto;
 		margin-top: 50px;
-		background-repeat: no-repeat;
+		 background-repeat: no-repeat; /* 避免圖片重複顯示 */
 	}
 	
 	#video {
@@ -51,10 +52,11 @@ margin: 0px;
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		background-repeat: no-repeat;
-		transform-origin: 0 0;
+		background-repeat: no-repeat; /* 避免圖片重複顯示 */
 	}
+	
 
+	
 	.diagonal-line {
   position: absolute;
   width: 100%;
@@ -64,6 +66,7 @@ margin: 0px;
   left: 0;
 }
 
+
 	 #video1 {
       position: fixed;
       bottom: 0;
@@ -71,7 +74,6 @@ margin: 0px;
       width: 10%;
       height: 10%;
       z-index: 9999;
-      transform-origin: 0 0;
     }
 
   </style>
@@ -83,12 +85,15 @@ margin: 0px;
 	<select id="camId"></select>
 	<button onclick="startWebcam1()">連結</button>
 	<br>
+    <!-- 新增镜像切换按钮 -->
     <button onclick="toggleVideoMirror()">切换镜像模式</button>
     <span id="mirrorStatus">当前模式：正常</span>
 	
 
 	<script>
+		//var videoElement = document.getElementById('video');
 		var camSelect = document.getElementById('camId');
+        // 新增：镜像模式状态变量
         let mirrorMode = 0; // 0:正常 1:左右下上 2:左右上下 3:右左上下 4:右左下上
 
 		function populateCameras() {
@@ -117,6 +122,7 @@ margin: 0px;
 						video.play();
 						video1.srcObject = stream;
 						video1.play();
+                        // 初始化镜像模式
                         updateVideoMirror();
 					})
 					.catch(function(error) {
@@ -126,10 +132,14 @@ margin: 0px;
 		}
 
 		populateCameras();
+
+           // const video = document.getElementById('video');
+           // const video1 = document.getElementById('video1');
 		
+        // 新增：更新视频镜像效果
         function updateVideoMirror() {
-            const video = document.getElementById('video');
-            const video1 = document.getElementById('video1');
+            //const video = document.getElementById('video');
+            //const video1 = document.getElementById('video1');
             const statusText = document.getElementById('mirrorStatus');
             let transform = '';
             let status = '';
@@ -140,46 +150,42 @@ margin: 0px;
                     status = '正常';
                     break;
                 case 1:
+                    // 1.左右下上 (水平翻转 + 垂直翻转)
                     transform = 'scaleX(-1) scaleY(-1)';
                     status = '左右下上';
                     break;
                 case 2:
+                    // 2.左右上下 (水平翻转)
                     transform = 'scaleX(-1)';
                     status = '左右上下';
                     break;
                 case 3:
+                    // 3.右左上下 (垂直翻转)
                     transform = 'scaleY(-1)';
                     status = '右左上下';
                     break;
                 case 4:
+                    // 4.右左下上 (先水平后垂直，等同于旋转180度)
                     transform = 'rotate(180deg)';
                     status = '右左下上';
                     break;
             }
 
-            video.dataset.mirrorTransform = transform;
-            video1.dataset.mirrorTransform = transform;
-            
-            // 重新应用完整变换（镜像+透视）
-            applyFullTransform(video);
-            applyFullTransform(video1);
-            
+            video.style.transform = transform;
+            video1.style.transform = transform;
             statusText.textContent = `当前模式：${status}`;
         }
 
-        // 应用完整变换：先镜像，后透视矩阵
-        function applyFullTransform(element) {
-            const mirrorTransform = element.dataset.mirrorTransform || 'none';
-            const matrixTransform = element.dataset.matrixTransform || 'none';
-            
-            // 关键：变换顺序调整为 镜像 + 透视矩阵（保证透视效果）
-            element.style.transform = `${mirrorTransform} ${matrixTransform}`;
-        }
-
+        // 新增：切换镜像模式
         function toggleVideoMirror() {
+            // 循环切换模式：0→1→2→3→4→0
             mirrorMode = (mirrorMode + 1) % 5;
             updateVideoMirror();
         }
+		
+//var mirrorEnabled = false;
+
+//var mirrorMode = 0; // 用于跟踪镜像模式，0表示无镜像，1表示左右镜像，2表示上下翻转，3表示左右加上下翻转
 	</script>
 
 <br> 
@@ -202,6 +208,9 @@ margin: 0px;
 	value="50" oninput="updateOpacity(this.value)"/>  
 	<button onclick="mTrans()">不透/y</button>
 	<button onclick="flash_Image()">閃動/f</button>
+  <script>
+
+</script>
 
   <video id="video1" class="video1" ></video>
   
@@ -244,33 +253,27 @@ function applyTransform(element, originalPos, targetPos, callback) {
     return H;
   };
 
-  // 修正坐标计算：基于元素原始位置，而非视口
-  var from = originalPos.map(p => ({ x: p[0], y: p[1] }));
-  var to = targetPos.map(p => ({ x: p[0], y: p[1] }));
+  var from = originalPos.map(p => ({ x: p[0] - originalPos[0][0], y: p[1] - originalPos[0][1] }));
+  var to = targetPos.map(p => ({ x: p[0] - originalPos[0][0], y: p[1] - originalPos[0][1] }));
   var H = getTransform(from, to);
-  
-  var matrixTransform = "matrix3d(" + (((function() {
-    var k, results;
-    results = [];
-    for (i = k = 0; k < 4; i = ++k) {
-      results.push((function() {
-        var l, results1;
-        results1 = [];
-        for (j = l = 0; l < 4; j = ++l) {
-          results1.push(H[j][i].toFixed(20));
-        }
-        return results1;
-      })());
-    }
-    return results;
-  })()).join(',')) + ")";
-  
-  // 保存矩阵变换
-  element.dataset.matrixTransform = matrixTransform;
-  
-  // 应用完整变换（镜像+透视）
-  applyFullTransform(element);
-  
+  $(element).css({
+    'transform': "matrix3d(" + (((function() {
+      var k, results;
+      results = [];
+      for (i = k = 0; k < 4; i = ++k) {
+        results.push((function() {
+          var l, results1;
+          results1 = [];
+          for (j = l = 0; l < 4; j = ++l) {
+            results1.push(H[j][i].toFixed(20));
+          }
+          return results1;
+        })());
+      }
+      return results;
+    })()).join(',')) + ")",
+    'transform-origin': '0 0'
+  });
   if (typeof callback === "function") {
     callback(element, H);
   }
@@ -279,85 +282,82 @@ function applyTransform(element, originalPos, targetPos, callback) {
 function makeTransformable(selector, callback) {
   var $ = jQuery;
   $(selector).each(function(i, element) {
-    var $element = $(element);
-    
-    // 恢复原始控制点定位逻辑（absolute + 元素相对位置）
+    $(element).css('transform', '');
     var controlPoints = ['left top', 'left bottom', 'right top', 'right bottom'].map(function(position) {
       return $('<div>').css({
-        border: '3px dashed red', 
+      border: '3px dashed red', 
         borderRadius: '3px',
         cursor: 'move',
         position: 'absolute',
-        zIndex: 100000,
-        width: '10px',
-        height: '10px',
-        boxSizing: 'border-box'
+        zIndex: 100000
       }).appendTo('body').position({
         at: position,
         of: element,
         collision: 'none'
       });
     });
-    
-    // 获取原始位置（基于元素offset，保证透视计算准确）
-    var originalPos = controlPoints.map(function(p) { 
-      return [p.offset().left, p.offset().top]; 
-    });
-    
+    var originalPos = controlPoints.map(function(p) { return [p.offset().left, p.offset().top]; });
     $(controlPoints).draggable({
-      start: function() { 
-        $element.css('pointer-events', 'none'); 
-      },
-      drag: function() { 
-        var currentPos = controlPoints.map(function(p) { 
-          return [p.offset().left, p.offset().top]; 
-        });
-        applyTransform(element, originalPos, currentPos, callback); 
-      },
+      start: function() { $(element).css('pointer-events', 'none'); },
+      drag: function() { applyTransform(element, originalPos, controlPoints.map(function(p) { return [p.offset().left, p.offset().top]; }), callback); },
       stop: function() {
-        var currentPos = controlPoints.map(function(p) { 
-          return [p.offset().left, p.offset().top]; 
-        });
-        applyTransform(element, originalPos, currentPos, callback);
-        $element.css('pointer-events', 'auto');
+        applyTransform(element, originalPos, controlPoints.map(function(p) { return [p.offset().left, p.offset().top]; }), callback);
+        $(element).css('pointer-events', 'auto');
       }
+	  
     });
   });
 }
+
+		
 	</script>
 	
 	
 	
    <script>
-  // 初始化视频的可透视变换
   makeTransformable('.video', function(element, H) {});
 
-  var video = document.getElementById('video'); 		
-  var video1 = document.getElementById('video1'); 	
 
 	function updateOpacity(value) {
 	 var image = document.getElementById('box');
+	 
 	 opacity= value/100;
-	 image.style.opacity = opacity;
-	}
+			image.style.opacity = opacity;
+		
+			}
 
 function aTrans(){
-  var image = document.getElementById('box');
-  var s = document.getElementById('slider');
-  var temp = parseFloat(s.value) - parseFloat(5);
-  s.value = temp;
-  opacity= temp/100;
-  image.style.opacity = opacity;
+var image = document.getElementById('box');
+var s = document.getElementById('slider');
+var temp = parseFloat(s.value) - parseFloat(5);
+s.value = temp;
+opacity= temp/100;
+image.style.opacity = opacity;
 }
 
 function mTrans(){
-  var image = document.getElementById('box');
-  var s = document.getElementById('slider');
-  var temp = parseFloat(s.value) + parseFloat(5);
-  s.value = temp;
-  opacity= temp/100;
-  image.style.opacity = opacity;
+var image = document.getElementById('box');
+var s = document.getElementById('slider');
+var temp = parseFloat(s.value) + parseFloat(5);
+s.value = temp;
+opacity= temp/100;
+image.style.opacity = opacity;
 }
+		
+			
+ var video = document.getElementById('video'); 		
+var video1 = document.getElementById('video1'); 	 
+		
+		/*
+	function startWebcam() {
+		if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+			navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
+				video.srcObject = stream;
+				video.play();
+			});
+		}
+	}
+*/
 
 var fileUpload = document.getElementById('file-upload');
 fileUpload.addEventListener('change', function(event) {
@@ -365,26 +365,35 @@ fileUpload.addEventListener('change', function(event) {
   var reader = new FileReader();
   reader.onload = function(event) {
     var image = new Image();
-    var image2 = new Image(); 
+	       var image2 = new Image(); 
     image.onload = function() {
-      var width = image.width;
+	
+	 var width = image.width;
       var height = image.height;
       var uploadStatus = document.getElementById('uploadStatus');
       uploadStatus.textContent = 'Width: ' + width + 'px, Height: ' + height + 'px' + ' ,Rate: '+width/height;
 	  
+	
       var canvas = document.createElement('canvas');
       var context = canvas.getContext('2d');
+
+      // 设置画布大小与图像大小相同
       canvas.width = getLarger(image.width,image.height);
       canvas.height = getLarger(image.width,image.height);
+
+      // 将图像绘制到画布上
       context.drawImage(image, 0, 0);
 	  
-      var canvas2 = document.createElement('canvas');
+	  
+	  //
+	
+	   var canvas2 = document.createElement('canvas');
       var context2 = canvas2.getContext('2d');
       canvas2.width = getLarger(image.width,image.height);
       canvas2.height = getLarger(image.width,image.height);
       context2.drawImage(image2, 0, 0);
 
-      // 绘制辅助线
+      // 绘制红色对角线
       context2.beginPath();
 	  context2.moveTo(0,canvas.height/2);
       context2.lineTo(canvas.width,canvas.height/2);
@@ -392,40 +401,43 @@ fileUpload.addEventListener('change', function(event) {
       context2.lineWidth = 4;
       context2.stroke();
       context2.beginPath(); 
-	  context2.moveTo(canvas.width/2, 0);
-      context2.lineTo(canvas.width/2, canvas.height);
+	 context2.moveTo(canvas.width/2, 0);
+     context2.lineTo(canvas.width/2, canvas.height);
       context2.strokeStyle = 'black';
       context2.lineWidth = 4;
       context2.stroke();
 	  
-      // 绘制红色辅助线（1/4）
+	  
+	        // 绘制红色对角线
       context2.beginPath();
-	  context2.moveTo(0,canvas.height/4);
+	 context2.moveTo(0,canvas.height/4);
       context2.lineTo(canvas.width,canvas.height/4);
       context2.strokeStyle = 'red';
       context2.lineWidth = 2;
       context2.stroke();
       context2.beginPath(); 
-	  context2.moveTo(canvas.width/4, 0);
-      context2.lineTo(canvas.width/4, canvas.height);
+	 context2.moveTo(canvas.width/4, 0);
+     context2.lineTo(canvas.width/4, canvas.height);
       context2.strokeStyle = 'red';
       context2.lineWidth = 2;
       context2.stroke();
 
+	        // 绘制红色对角线
       context2.beginPath();
-	  context2.moveTo(0,canvas.height/4*3);
+	     context2.moveTo(0,canvas.height/4*3);
       context2.lineTo(canvas.width,canvas.height/4*3);
       context2.strokeStyle = 'red';
       context2.lineWidth = 2;
       context2.stroke();
       context2.beginPath(); 
-	  context2.moveTo(canvas.width/4*3, 0);
-      context2.lineTo(canvas.width/4*3, canvas.height);
+	 context2.moveTo(canvas.width/4*3, 0);
+     context2.lineTo(canvas.width/4*3, canvas.height);
       context2.strokeStyle = 'red';
       context2.lineWidth = 2;
       context2.stroke();
 	  
-      // 绘制红色辅助线（1/8）
+	  
+	  	        // 绘制红色对角线
       context2.beginPath();
 	  context2.moveTo(0,canvas.height/8*7);
       context2.lineTo(canvas.width,canvas.height/8*7);
@@ -433,61 +445,68 @@ fileUpload.addEventListener('change', function(event) {
       context2.lineWidth = 2;
       context2.stroke();
       context2.beginPath(); 
-	  context2.moveTo(canvas.width/8*7, 0);
-      context2.lineTo(canvas.width/8*7, canvas.height);
+	 context2.moveTo(canvas.width/8*7, 0);
+     context2.lineTo(canvas.width/8*7, canvas.height);
       context2.strokeStyle = 'red';
       context2.lineWidth = 2;
       context2.stroke();
 
+	  	        // 绘制红色对角线
       context2.beginPath();
-	  context2.moveTo(0,canvas.height/8*5);
+	     context2.moveTo(0,canvas.height/8*5);
       context2.lineTo(canvas.width,canvas.height/8*5);
       context2.strokeStyle = 'red';
       context2.lineWidth = 2;
       context2.stroke();
       context2.beginPath(); 
-	  context2.moveTo(canvas.width/8*5, 0);
-      context2.lineTo(canvas.width/8*5, canvas.height);
+	 context2.moveTo(canvas.width/8*5, 0);
+     context2.lineTo(canvas.width/8*5, canvas.height);
       context2.strokeStyle = 'red';
       context2.lineWidth = 2;
       context2.stroke();
 
+	  	        // 绘制红色对角线
       context2.beginPath();
-	  context2.moveTo(0,canvas.height/8*3);
+	     context2.moveTo(0,canvas.height/8*3);
       context2.lineTo(canvas.width,canvas.height/8*3);
       context2.strokeStyle = 'red';
       context2.lineWidth = 2;
       context2.stroke();
       context2.beginPath(); 
-	  context2.moveTo(canvas.width/8*3, 0);
-      context2.lineTo(canvas.width/8*3, canvas.height);
+	 context2.moveTo(canvas.width/8*3, 0);
+     context2.lineTo(canvas.width/8*3, canvas.height);
       context2.strokeStyle = 'red';
       context2.lineWidth = 2;
       context2.stroke();
 	  
+	  	  	        // 绘制红色对角线
       context2.beginPath();
-	  context2.moveTo(0,canvas.height/8*1);
+	     context2.moveTo(0,canvas.height/8*1);
       context2.lineTo(canvas.width,canvas.height/8*1);
       context2.strokeStyle = 'red';
       context2.lineWidth = 2;
       context2.stroke();
       context2.beginPath(); 
-	  context2.moveTo(canvas.width/8*1, 0);
-      context2.lineTo(canvas.width/8*1, canvas.height);
+	 context2.moveTo(canvas.width/8*1, 0);
+     context2.lineTo(canvas.width/8*1, canvas.height);
       context2.strokeStyle = 'red';
       context2.lineWidth = 2;
       context2.stroke();
 
-      // 更新图片显示
+      // 将修改后的图像显示在页面上
       var box = document.querySelector('.box');
 	  box.style.width = getLarger(image.width,image.height)+"px";
 	  box.style.height = getLarger(image.width,image.height)+"px";
+	
       box.style.backgroundImage = 'url(' + canvas.toDataURL() + ')';
 	  
-      var box2 = document.querySelector('.box2');
+	  
+	   var box2 = document.querySelector('.box2');
 	  box2.style.width = getLarger(image.width,image.height)+"px";
 	  box2.style.height = getLarger(image.width,image.height)+"px";
+	
       box2.style.backgroundImage = 'url(' + canvas2.toDataURL() + ')';
+	  
     };
 
     image.src = event.target.result;
@@ -499,83 +518,113 @@ function getLarger(x, y) {
   return x > y ? x : y;
 }		
 
-var interval;
-var opacity;
+var interval; // 用于存储闪烁的间隔函数
+  var opacity;
 function flash_Image() {
   var image = document.getElementById('box');
   var slider = document.getElementById('slider');
-  opacity= slider.value / 100;
+opacity= slider.value / 100;
 
   if (interval) {
+    // 如果闪烁正在进行中，则停止闪烁
     clearInterval(interval);
     image.style.opacity = opacity;
-    interval = null;
+    interval = null; // 将间隔函数变量重置为null
   } else {
+    // 如果闪烁未开始，则开始闪烁
     interval = setInterval(function() {
-      image.style.opacity = image.style.opacity === '0' ? opacity : '0';
-    }, 800);
+      if (image.style.opacity === '0') {
+        image.style.opacity = opacity;
+      } else {
+        image.style.opacity = '0';
+      }
+    }, 800); // 闪烁间隔时间为500毫秒
   }
 }
 
-function moveLeft() {
-  box2.style.left = box.style.left;
-  box2.style.top = box.style.top;
-  var currentLeft = parseFloat(box.style.left) || 0;
-  box.style.left = (currentLeft - 5) + 'px';
-  box2.style.left = (currentLeft - 5) + 'px';
-}
 
-function moveRight() {
-  box2.style.left = box.style.left;
-  box2.style.top = box.style.top;
-  var currentLeft = parseFloat(box.style.left) || 0;
-  box.style.left = (currentLeft + 5) + 'px';
-  box2.style.left = (currentLeft + 5) + 'px';
-}
+ function moveLeft() {
+ box2.style.left = box.style.left;
+  box2.style.top = box.style.top; // 修复拼写错误 Top → top
+      var currentLeft = parseFloat(box.style.left) || 0;
+	  var currentLeft2 = currentLeft;
+      box.style.left = (currentLeft - 5) + 'px';
+     box2.style.left = (currentLeft2 - 5) + 'px';
+	// alert(box.style.left+" "+ box2.style.left);
+    }
 
-function moveUp() {
-  box2.style.left = box.style.left;
-  box2.style.top = box.style.top;
-  var currentTop = parseFloat(box.style.top) || 0;
-  box.style.top = (currentTop - 5) + 'px';     
-  box2.style.top = (currentTop - 5) + 'px';
-}
+    function moveRight() {
+	 box2.style.left = box.style.left;
+  box2.style.top = box.style.top; // 修复拼写错误 Top → top
+      var currentLeft = parseFloat(box.style.left) || 0;
+	   var currentLeft2 = currentLeft;
+      box.style.left = (currentLeft + 5) + 'px';
+      box2.style.left = (currentLeft2 + 5) + 'px';
+    }
 
-function moveDown() {
-  box2.style.left = box.style.left;
-  box2.style.top = box.style.top;
-  var currentTop = parseFloat(box.style.top) || 0;
-  box.style.top = (currentTop + 5) + 'px';
-  box2.style.top = (currentTop + 5) + 'px';
-}
+    function moveUp() {
+	 box2.style.left = box.style.left;
+  box2.style.top = box.style.top; // 修复拼写错误 Top → top
+      var currentTop = parseFloat(box.style.top) || 0;
+	  var currentTop2 = currentTop;
+      box.style.top = (currentTop - 5) + 'px';     
+      box2.style.top = (currentTop2 - 5) + 'px';
+    }
 
-document.addEventListener('keydown', function(event) {
+    function moveDown() {
+	 box2.style.left = box.style.left;
+  box2.style.top = box.style.top; // 修复拼写错误 Top → top
+      var currentTop = parseFloat(box.style.top) || 0;
+      var currentTop2 = currentTop;
+      box.style.top = (currentTop + 5) + 'px';
+      box2.style.top = (currentTop2 + 5) + 'px';
+    }
+	
+	document.addEventListener('keydown', function(event) {
   switch (event.key) {
-    case 'a': moveLeft(); break;
-    case 'd': moveRight(); break;
-    case 'w': moveUp(); break;
-    case 's': moveDown(); break;
-    case 'i': zoomIn(); break;
-    case 'o': zoomOut(); break;
-	case 't': aTrans(); break;
-    case 'y': mTrans(); break;
-    case 'f': flash_Image(); break;
+    case 'a':
+      moveLeft();
+      break;
+    case 'd':
+      moveRight();
+      break;
+    case 'w':
+      moveUp();
+      break;
+    case 's':
+      moveDown();
+      break;
+    case 'i':
+      zoomIn();
+      break;
+    case 'o':
+      zoomOut();
+	   break;
+	case 't':
+      aTrans();
+      break;
+    case 'y':
+      mTrans();
+	   break;
+	    case 'f':
+      flash_Image();
+	   break;
   }
 });
 	
-function zoomIn() {
-  var currentScale = box.style.transform;
-  var newScale = currentScale ? parseFloat(currentScale.split('scale(')[1]) + 0.1 : 1.1;
-  box.style.transform = 'scale(' + newScale + ')';
-  box2.style.transform = 'scale(' + newScale + ')';
-}
+	function zoomIn() {
+      var currentScale = box.style.transform;
+      var newScale = currentScale ? parseFloat(currentScale.split('scale(')[1]) + 0.1 : 1.1;
+      box.style.transform = 'scale(' + newScale + ')';
+      box2.style.transform = 'scale(' + newScale + ')';
+    }
 
-function zoomOut() {
-  var currentScale = box.style.transform;
-  var newScale = currentScale ? parseFloat(currentScale.split('scale(')[1]) - 0.1 : 0.9;
-  box.style.transform = 'scale(' + newScale + ')';
-  box2.style.transform = 'scale(' + newScale + ')';
-}
+    function zoomOut() {
+      var currentScale = box.style.transform;
+      var newScale = currentScale ? parseFloat(currentScale.split('scale(')[1]) - 0.1 : 0.9;
+      box.style.transform = 'scale(' + newScale + ')';
+	  box2.style.transform = 'scale(' + newScale + ')';
+    }
    </script>
 </body>
 </html>
