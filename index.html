@@ -138,8 +138,8 @@ margin: 0px;
 		
         // 新增：更新视频镜像效果
         function updateVideoMirror() {
-            //const video = document.getElementById('video');
-            //const video1 = document.getElementById('video1');
+            const video = document.getElementById('video');
+            const video1 = document.getElementById('video1');
             const statusText = document.getElementById('mirrorStatus');
             let transform = '';
             let status = '';
@@ -171,9 +171,30 @@ margin: 0px;
                     break;
             }
 
-            video.style.transform = transform;
-            video1.style.transform = transform;
+            // 保存镜像变换，供后续合并使用
+            video.dataset.mirrorTransform = transform;
+            video1.dataset.mirrorTransform = transform;
+            
+            // 应用变换（如果还没有拖拽变换，直接应用镜像）
+            if (!video.style.transform || video.style.transform.indexOf('matrix3d') === -1) {
+                video.style.transform = transform;
+                video1.style.transform = transform;
+            } else {
+                // 如果已有拖拽变换，重新应用合并后的变换
+                applyTransformWithMirror(video);
+                applyTransformWithMirror(video1);
+            }
+            
             statusText.textContent = `当前模式：${status}`;
+        }
+
+        // 新增：合并镜像变换和拖拽变换
+        function applyTransformWithMirror(element) {
+            const mirrorTransform = element.dataset.mirrorTransform || 'none';
+            const matrixTransform = element.dataset.matrixTransform || 'none';
+            
+            // 合并变换：先应用矩阵变换，再应用镜像变换
+            element.style.transform = `${matrixTransform} ${mirrorTransform}`;
         }
 
         // 新增：切换镜像模式
@@ -256,24 +277,30 @@ function applyTransform(element, originalPos, targetPos, callback) {
   var from = originalPos.map(p => ({ x: p[0] - originalPos[0][0], y: p[1] - originalPos[0][1] }));
   var to = targetPos.map(p => ({ x: p[0] - originalPos[0][0], y: p[1] - originalPos[0][1] }));
   var H = getTransform(from, to);
-  $(element).css({
-    'transform': "matrix3d(" + (((function() {
-      var k, results;
-      results = [];
-      for (i = k = 0; k < 4; i = ++k) {
-        results.push((function() {
-          var l, results1;
-          results1 = [];
-          for (j = l = 0; l < 4; j = ++l) {
-            results1.push(H[j][i].toFixed(20));
-          }
-          return results1;
-        })());
-      }
-      return results;
-    })()).join(',')) + ")",
-    'transform-origin': '0 0'
-  });
+  
+  // 生成矩阵变换字符串
+  var matrixTransform = "matrix3d(" + (((function() {
+    var k, results;
+    results = [];
+    for (i = k = 0; k < 4; i = ++k) {
+      results.push((function() {
+        var l, results1;
+        results1 = [];
+        for (j = l = 0; l < 4; j = ++l) {
+          results1.push(H[j][i].toFixed(20));
+        }
+        return results1;
+      })());
+    }
+    return results;
+  })()).join(',')) + ")";
+  
+  // 保存矩阵变换到data属性
+  element.dataset.matrixTransform = matrixTransform;
+  
+  // 合并镜像变换和矩阵变换
+  applyTransformWithMirror(element);
+  
   if (typeof callback === "function") {
     callback(element, H);
   }
@@ -282,7 +309,8 @@ function applyTransform(element, originalPos, targetPos, callback) {
 function makeTransformable(selector, callback) {
   var $ = jQuery;
   $(selector).each(function(i, element) {
-    $(element).css('transform', '');
+    // 保留原有transform（镜像），不重置为空
+    // $(element).css('transform', '');  // 注释掉这行，避免重置镜像
     var controlPoints = ['left top', 'left bottom', 'right top', 'right bottom'].map(function(position) {
       return $('<div>').css({
       border: '3px dashed red', 
