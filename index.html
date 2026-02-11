@@ -11,11 +11,11 @@ margin: 0px;
   width: 500px;
   border: 0px;
    position: absolute;
-  background-repeat: no-repeat; /* 避免圖片重複顯示 */
-  background-position: left top; /* 将背景图像左上角对齐 */
+  background-repeat: no-repeat;
+  background-position: left top;
   z-index: 1;
   opacity: 0.5;
-   transform-origin: left top; /* 缩放操作的原点在左上角 */
+  transform-origin: left top;
   
 }
 
@@ -27,11 +27,11 @@ margin: 0px;
   border: 0px;
    position: absolute;
   border: 1px solid red;
-  background-repeat: no-repeat; /* 避免圖片重複顯示 */
-  background-position: left top; /* 将背景图像左上角对齐 */
+  background-repeat: no-repeat;
+  background-position: left top;
   z-index: 9999;
   opacity: 1;
-   transform-origin: left top; /* 缩放操作的原点在左上角 */
+  transform-origin: left top;
     
 }
 
@@ -41,7 +41,7 @@ margin: 0px;
 		height: 734px;
 		margin: 0 auto;
 		margin-top: 50px;
-		 background-repeat: no-repeat; /* 避免圖片重複顯示 */
+		background-repeat: no-repeat;
 	}
 	
 	#video {
@@ -51,8 +51,8 @@ margin: 0px;
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		background-repeat: no-repeat; /* 避免圖片重複顯示 */
-        transform-origin: 0 0; /* 统一变换原点为左上角 */
+		background-repeat: no-repeat;
+		transform-origin: 0 0;
 	}
 
 	.diagonal-line {
@@ -71,7 +71,7 @@ margin: 0px;
       width: 10%;
       height: 10%;
       z-index: 9999;
-        transform-origin: 0 0; /* 统一变换原点为左上角 */
+      transform-origin: 0 0;
     }
 
   </style>
@@ -83,7 +83,6 @@ margin: 0px;
 	<select id="camId"></select>
 	<button onclick="startWebcam1()">連結</button>
 	<br>
-    <!-- 新增镜像切换按钮 -->
     <button onclick="toggleVideoMirror()">切换镜像模式</button>
     <span id="mirrorStatus">当前模式：正常</span>
 	
@@ -161,23 +160,20 @@ margin: 0px;
             video.dataset.mirrorTransform = transform;
             video1.dataset.mirrorTransform = transform;
             
-            if (!video.style.transform || video.style.transform.indexOf('matrix3d') === -1) {
-                video.style.transform = transform;
-                video1.style.transform = transform;
-            } else {
-                applyTransformWithMirror(video);
-                applyTransformWithMirror(video1);
-            }
+            // 重新应用完整变换（镜像+透视）
+            applyFullTransform(video);
+            applyFullTransform(video1);
             
             statusText.textContent = `当前模式：${status}`;
-            // 重新定位控制点
-            repositionControlPoints(video);
         }
 
-        function applyTransformWithMirror(element) {
+        // 应用完整变换：先镜像，后透视矩阵
+        function applyFullTransform(element) {
             const mirrorTransform = element.dataset.mirrorTransform || 'none';
             const matrixTransform = element.dataset.matrixTransform || 'none';
-            element.style.transform = `${matrixTransform} ${mirrorTransform}`;
+            
+            // 关键：变换顺序调整为 镜像 + 透视矩阵（保证透视效果）
+            element.style.transform = `${mirrorTransform} ${matrixTransform}`;
         }
 
         function toggleVideoMirror() {
@@ -222,9 +218,6 @@ margin: 0px;
 <script src='js2/jquery-ui.min.js'></script>
 <script src='js2/numeric.min.js'></script>
     <script>
-// 全局存储控制点，方便重新定位
-let controlPointsStore = {};
-
 function applyTransform(element, originalPos, targetPos, callback) {
   var $ = jQuery;
   var getTransform = function(from, to) {
@@ -251,8 +244,9 @@ function applyTransform(element, originalPos, targetPos, callback) {
     return H;
   };
 
-  var from = originalPos.map(p => ({ x: p[0] - originalPos[0][0], y: p[1] - originalPos[0][1] }));
-  var to = targetPos.map(p => ({ x: p[0] - originalPos[0][0], y: p[1] - originalPos[0][1] }));
+  // 修正坐标计算：基于元素原始位置，而非视口
+  var from = originalPos.map(p => ({ x: p[0], y: p[1] }));
+  var to = targetPos.map(p => ({ x: p[0], y: p[1] }));
   var H = getTransform(from, to);
   
   var matrixTransform = "matrix3d(" + (((function() {
@@ -271,8 +265,11 @@ function applyTransform(element, originalPos, targetPos, callback) {
     return results;
   })()).join(',')) + ")";
   
+  // 保存矩阵变换
   element.dataset.matrixTransform = matrixTransform;
-  applyTransformWithMirror(element);
+  
+  // 应用完整变换（镜像+透视）
+  applyFullTransform(element);
   
   if (typeof callback === "function") {
     callback(element, H);
@@ -283,41 +280,28 @@ function makeTransformable(selector, callback) {
   var $ = jQuery;
   $(selector).each(function(i, element) {
     var $element = $(element);
-    var elementId = element.id || 'video_' + i;
     
-    // 生成控制点，基于元素的BoundingClientRect（视觉位置）
-    var controlPoints = ['left top', 'left bottom', 'right top', 'right bottom'].map(function(position, idx) {
-      var rect = element.getBoundingClientRect();
-      var cp = $('<div>').css({
+    // 恢复原始控制点定位逻辑（absolute + 元素相对位置）
+    var controlPoints = ['left top', 'left bottom', 'right top', 'right bottom'].map(function(position) {
+      return $('<div>').css({
         border: '3px dashed red', 
         borderRadius: '3px',
         cursor: 'move',
-        position: 'fixed', // 改为fixed，基于视口定位
+        position: 'absolute',
         zIndex: 100000,
         width: '10px',
         height: '10px',
         boxSizing: 'border-box'
-      }).appendTo('body');
-      
-      // 根据位置设置初始坐标
-      var x = rect.left;
-      var y = rect.top;
-      if (position.includes('right')) x = rect.right - 10;
-      if (position.includes('bottom')) y = rect.bottom - 10;
-      
-      cp.css({
-        left: x + 'px',
-        top: y + 'px'
+      }).appendTo('body').position({
+        at: position,
+        of: element,
+        collision: 'none'
       });
-      
-      return cp;
     });
     
-    // 存储控制点
-    controlPointsStore[elementId] = controlPoints;
-    
+    // 获取原始位置（基于元素offset，保证透视计算准确）
     var originalPos = controlPoints.map(function(p) { 
-      return [parseFloat(p.css('left')), parseFloat(p.css('top'))]; 
+      return [p.offset().left, p.offset().top]; 
     });
     
     $(controlPoints).draggable({
@@ -326,13 +310,13 @@ function makeTransformable(selector, callback) {
       },
       drag: function() { 
         var currentPos = controlPoints.map(function(p) { 
-          return [parseFloat(p.css('left')), parseFloat(p.css('top'))]; 
+          return [p.offset().left, p.offset().top]; 
         });
         applyTransform(element, originalPos, currentPos, callback); 
       },
       stop: function() {
         var currentPos = controlPoints.map(function(p) { 
-          return [parseFloat(p.css('left')), parseFloat(p.css('top'))]; 
+          return [p.offset().left, p.offset().top]; 
         });
         applyTransform(element, originalPos, currentPos, callback);
         $element.css('pointer-events', 'auto');
@@ -340,41 +324,12 @@ function makeTransformable(selector, callback) {
     });
   });
 }
-
-// 重新定位控制点，匹配视频的视觉位置
-function repositionControlPoints(element) {
-  var $ = jQuery;
-  var $element = $(element);
-  var elementId = element.id || 'video_0';
-  var controlPoints = controlPointsStore[elementId];
-  
-  if (!controlPoints) return;
-  
-  // 获取视频的视觉位置
-  var rect = element.getBoundingClientRect();
-  
-  // 重新定位四个控制点
-  var positions = ['left top', 'left bottom', 'right top', 'right bottom'];
-  controlPoints.forEach(function(cp, idx) {
-    var position = positions[idx];
-    var x = rect.left;
-    var y = rect.top;
-    if (position.includes('right')) x = rect.right - 10;
-    if (position.includes('bottom')) y = rect.bottom - 10;
-    
-    cp.css({
-      left: x + 'px',
-      top: y + 'px'
-    });
-  });
-}
-		
 	</script>
 	
 	
 	
    <script>
-  // 初始化可变换控件
+  // 初始化视频的可透视变换
   makeTransformable('.video', function(element, H) {});
 
   var video = document.getElementById('video'); 		
