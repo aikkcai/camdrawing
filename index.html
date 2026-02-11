@@ -1,14 +1,8 @@
-
-
 <!DOCTYPE html>
-<html >
+<html>
 <head>
   <meta charset="UTF-8">
   <title>Help to draw</title>
-  
-
-   
-
   <style>
 .box {
 margin: 0px;
@@ -84,7 +78,6 @@ margin: 0px;
     }
 
   </style>
-
 </head>
 
 <body>
@@ -93,11 +86,16 @@ margin: 0px;
 	<select id="camId"></select>
 	<button onclick="startWebcam1()">連結</button>
 	<br>
+    <!-- 新增镜像切换按钮 -->
+    <button onclick="toggleVideoMirror()">切换镜像模式</button>
+    <span id="mirrorStatus">当前模式：正常</span>
 	
 
 	<script>
 		//var videoElement = document.getElementById('video');
 		var camSelect = document.getElementById('camId');
+        // 新增：镜像模式状态变量
+        let mirrorMode = 0; // 0:正常 1:左右下上 2:左右上下 3:右左上下 4:右左下上
 
 		function populateCameras() {
 			navigator.mediaDevices.enumerateDevices()
@@ -125,6 +123,8 @@ margin: 0px;
 						video.play();
 						video1.srcObject = stream;
 						video1.play();
+                        // 初始化镜像模式
+                        updateVideoMirror();
 					})
 					.catch(function(error) {
 						console.log('Error accessing webcam:', error);
@@ -134,19 +134,58 @@ margin: 0px;
 
 		populateCameras();
 		
+        // 新增：更新视频镜像效果
+        function updateVideoMirror() {
+            const video = document.getElementById('video');
+            const video1 = document.getElementById('video1');
+            const statusText = document.getElementById('mirrorStatus');
+            let transform = '';
+            let status = '';
+
+            switch(mirrorMode) {
+                case 0:
+                    transform = 'none';
+                    status = '正常';
+                    break;
+                case 1:
+                    // 1.左右下上 (水平翻转 + 垂直翻转)
+                    transform = 'scaleX(-1) scaleY(-1)';
+                    status = '左右下上';
+                    break;
+                case 2:
+                    // 2.左右上下 (水平翻转)
+                    transform = 'scaleX(-1)';
+                    status = '左右上下';
+                    break;
+                case 3:
+                    // 3.右左上下 (垂直翻转)
+                    transform = 'scaleY(-1)';
+                    status = '右左上下';
+                    break;
+                case 4:
+                    // 4.右左下上 (先水平后垂直，等同于旋转180度)
+                    transform = 'rotate(180deg)';
+                    status = '右左下上';
+                    break;
+            }
+
+            video.style.transform = transform;
+            video1.style.transform = transform;
+            statusText.textContent = `当前模式：${status}`;
+        }
+
+        // 新增：切换镜像模式
+        function toggleVideoMirror() {
+            // 循环切换模式：0→1→2→3→4→0
+            mirrorMode = (mirrorMode + 1) % 5;
+            updateVideoMirror();
+        }
+		
 //var mirrorEnabled = false;
 
 //var mirrorMode = 0; // 用于跟踪镜像模式，0表示无镜像，1表示左右镜像，2表示上下翻转，3表示左右加上下翻转
-
-
-	
-
-		
 	</script>
 
-
-
-	
 <br> 
   	<label for="file-upload"> 2. 上載圖片:</label>
 	<input type="file" id="file-upload"></INPUT>
@@ -171,7 +210,6 @@ margin: 0px;
 
 </script>
 
-
   <video id="video1" class="video1" ></video>
   
    <div id="video-container"> 
@@ -182,8 +220,6 @@ margin: 0px;
 <div class="box2" id="box2"  style="margin: auto"></div>
 
  </div>
- 
-  
   
   <script src='js2/jquery.min.js'></script>
 <script src='js2/jquery-ui.min.js'></script>
@@ -235,13 +271,8 @@ var video1 = document.getElementById('video1');
 			});
 		}
 	}
-
-
 */
 
-
-	
-	
 var fileUpload = document.getElementById('file-upload');
 fileUpload.addEventListener('change', function(event) {
   var file = event.target.files[0];
@@ -428,7 +459,7 @@ opacity= slider.value / 100;
 
  function moveLeft() {
  box2.style.left = box.style.left;
-  box2.style.Top = box.style.Top;
+  box2.style.top = box.style.top; // 修复拼写错误 Top → top
       var currentLeft = parseFloat(box.style.left) || 0;
 	  var currentLeft2 = currentLeft;
       box.style.left = (currentLeft - 5) + 'px';
@@ -438,7 +469,7 @@ opacity= slider.value / 100;
 
     function moveRight() {
 	 box2.style.left = box.style.left;
-  box2.style.Top = box.style.Top;
+  box2.style.top = box.style.top; // 修复拼写错误 Top → top
       var currentLeft = parseFloat(box.style.left) || 0;
 	   var currentLeft2 = currentLeft;
       box.style.left = (currentLeft + 5) + 'px';
@@ -447,7 +478,7 @@ opacity= slider.value / 100;
 
     function moveUp() {
 	 box2.style.left = box.style.left;
-  box2.style.Top = box.style.Top;
+  box2.style.top = box.style.top; // 修复拼写错误 Top → top
       var currentTop = parseFloat(box.style.top) || 0;
 	  var currentTop2 = currentTop;
       box.style.top = (currentTop - 5) + 'px';     
@@ -456,7 +487,7 @@ opacity= slider.value / 100;
 
     function moveDown() {
 	 box2.style.left = box.style.left;
-  box2.style.Top = box.style.Top;
+  box2.style.top = box.style.top; // 修复拼写错误 Top → top
       var currentTop = parseFloat(box.style.top) || 0;
       var currentTop2 = currentTop;
       box.style.top = (currentTop + 5) + 'px';
@@ -496,11 +527,10 @@ opacity= slider.value / 100;
 });
 	
 	function zoomIn() {
-
       var currentScale = box.style.transform;
       var newScale = currentScale ? parseFloat(currentScale.split('scale(')[1]) + 0.1 : 1.1;
       box.style.transform = 'scale(' + newScale + ')';
- box2.style.transform = 'scale(' + newScale + ')';
+      box2.style.transform = 'scale(' + newScale + ')';
     }
 
     function zoomOut() {
@@ -509,10 +539,6 @@ opacity= slider.value / 100;
       box.style.transform = 'scale(' + newScale + ')';
 	  box2.style.transform = 'scale(' + newScale + ')';
     }
-
-
    </script>
-   
-
 </body>
 </html>
