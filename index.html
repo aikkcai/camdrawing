@@ -6,6 +6,15 @@
   <title>Help to draw</title>
   <style>
 
+.btn-large-1 {
+  width: 200px;    /* 宽度设为200px */
+  height: 80px;    /* 高度设为80px */
+  font-size: 20px; /* 文字大小适配，避免文字太小/太大 */
+  background-color: #4CAF50;
+  color: white;
+  border-radius: 8px; /* 可选：圆角，更美观 */
+}
+	  
 .container_img {
   position: relative; /* 可选：稳定子元素初始位置 */
    transform-origin: left top; /* 缩放操作的原点在左上角 */
@@ -201,12 +210,12 @@ margin: 0px;
 	<div id="uploadStatus">Check width and height of the image before uploading...</div>
 	
 	 
-  <button onclick="zoomIn()">放大/i</button>
-  <button onclick="zoomOut()">缩小/o</button>
-  <button onclick="moveLeft()">左移/a</button>
-  <button onclick="moveRight()">右移/d</button>
-  <button onclick="moveUp()">上移/w</button>
-  <button onclick="moveDown()">下移s</button>
+  <button onclick="zoomIn()"  class="btn-large-1">放大/i</button>
+  <button onclick="zoomOut()"  class="btn-large-1">缩小/o</button>
+  <button onclick="moveLeft()" class="btn-large-1">左移/a</button>
+  <button onclick="moveRight()" class="btn-large-1">右移/d</button>
+  <button onclick="moveUp()" class="btn-large-1">上移/w</button>
+  <button onclick="moveDown()" class="btn-large-1">下移s</button>
  <br> 
 	<br> 3. 設定圖片透明度 :
 	 <button onclick="aTrans()">透明/t</button>
