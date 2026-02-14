@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -303,36 +305,127 @@ function applyTransform(element, originalPos, targetPos, callback) {
   }
 }
 
+
 function makeTransformable(selector, callback) {
   var $ = jQuery;
-  $(selector).each(function(i, element) {
-    $(element).css('transform', '');
-    var controlPoints = ['left top', 'left bottom', 'right top', 'right bottom'].map(function(position) {
-      return $('<div>').css({
-      border: '3px dashed red', 
-        borderRadius: '3px',
-        cursor: 'move',
-        position: 'absolute',
-        zIndex: 100000
-      }).appendTo('body').position({
-        at: position,
-        of: element,
-        collision: 'none'
-      });
-    });
-    var originalPos = controlPoints.map(function(p) { return [p.offset().left, p.offset().top]; });
-    $(controlPoints).draggable({
-      start: function() { $(element).css('pointer-events', 'none'); },
-      drag: function() { applyTransform(element, originalPos, controlPoints.map(function(p) { return [p.offset().left, p.offset().top]; }), callback); },
-      stop: function() {
-        applyTransform(element, originalPos, controlPoints.map(function(p) { return [p.offset().left, p.offset().top]; }), callback);
-        $(element).css('pointer-events', 'auto');
-      }
-	  
-    });
-  });
-}
 
+  // 给控制点设置基础样式，确保移动时不会触发页面滚动
+  var pointStyle = {
+    border: '3px dashed red',
+    borderRadius: '3px',
+    cursor: 'move',
+    position: 'absolute',
+    zIndex: 100000,
+    touchAction: 'none', // 禁用默认触摸行为（避免滚动）
+    userSelect: 'none',
+    width: '24px', height: '24px', background: 'rgba(255,0,0,0.05)'
+  };
+
+  $(selector).each(function(i, element) {
+    // 清除原有 transform（以防冲突）
+    $(element).css('transform','');
+
+    // 生成 4 个控制点（左上，左下，右上，右下）
+    var anchors = ['left top', 'left bottom', 'right top', 'right bottom'];
+    var controlPoints = anchors.map(function(position) {
+      var $p = $('<div class="transform-control">').css(pointStyle).appendTo('body');
+      $p.position({ at: position, of: element, collision: 'none' });
+      return $p;
+    });
+
+    // 记录初始四角（屏幕坐标）
+    var originalPos = controlPoints.map(function($p) {
+      var off = $p.offset();
+      return [ off.left, off.top ];
+    });
+
+    // 辅助：把 jQuery 对象数组映射为普通数组的 offset
+    function getCurrentPosArr() {
+      return controlPoints.map(function($p) {
+        var off = $p.offset();
+        return [ off.left, off.top ];
+      });
+    }
+
+    // 通用拖动处理器（Pointer Events）
+    controlPoints.forEach(function($p, idx) {
+      var el = $p[0];
+      var isPointerDown = false;
+      var startX = 0, startY = 0;
+      var startLeft = 0, startTop = 0;
+
+      // 初始化样式位置属性（便于直接设置 left/top）
+      var ofs = $p.offset();
+      $p.css({ left: ofs.left + 'px', top: ofs.top + 'px', margin: 0, position: 'absolute' });
+
+      // Pointer down
+      el.addEventListener('pointerdown', function(ev) {
+        ev.preventDefault();
+        el.setPointerCapture(ev.pointerId);
+        isPointerDown = true;
+        startX = ev.clientX; startY = ev.clientY;
+        startLeft = parseFloat($p.css('left')) || 0;
+        startTop = parseFloat($p.css('top')) || 0;
+        // 防止页面触摸滚动
+        document.body.style.touchAction = 'none';
+        // 可选：隐藏元素的 pointer events，以避免被 transform 元素覆盖影响交互
+        $(element).css('pointer-events','none');
+      });
+
+      // Pointer move
+      el.addEventListener('pointermove', function(ev) {
+        if(!isPointerDown) return;
+        ev.preventDefault();
+        var dx = ev.clientX - startX;
+        var dy = ev.clientY - startY;
+        $p.css({ left: (startLeft + dx) + 'px', top: (startTop + dy) + 'px' });
+        // 立即更新透视变换
+        applyTransform(element, originalPos, getCurrentPosArr(), callback);
+      });
+
+      // Pointer up / cancel
+      function pointerUp(ev) {
+        if(!isPointerDown) return;
+        isPointerDown = false;
+        try { el.releasePointerCapture(ev.pointerId); } catch(e){}
+        document.body.style.touchAction = ''; // 恢复
+        $(element).css('pointer-events','auto');
+        // 最终应用一次
+        applyTransform(element, originalPos, getCurrentPosArr(), callback);
+      }
+      el.addEventListener('pointerup', pointerUp);
+      el.addEventListener('pointercancel', pointerUp);
+
+      // 兼容：若环境不支持 PointerEvent，回退到 touch events
+      if(typeof window.PointerEvent === 'undefined') {
+        el.addEventListener('touchstart', function(ev) {
+          var t = ev.touches[0];
+          ev.preventDefault();
+          isPointerDown = true;
+          startX = t.clientX; startY = t.clientY;
+          startLeft = parseFloat($p.css('left')) || 0;
+          startTop = parseFloat($p.css('top')) || 0;
+          $(element).css('pointer-events','none');
+        }, {passive:false});
+        el.addEventListener('touchmove', function(ev) {
+          if(!isPointerDown) return;
+          var t = ev.touches[0];
+          ev.preventDefault();
+          var dx = t.clientX - startX;
+          var dy = t.clientY - startY;
+          $p.css({ left: (startLeft + dx) + 'px', top: (startTop + dy) + 'px' });
+          applyTransform(element, originalPos, getCurrentPosArr(), callback);
+        }, {passive:false});
+        el.addEventListener('touchend', function(ev) {
+          isPointerDown = false;
+          $(element).css('pointer-events','auto');
+          applyTransform(element, originalPos, getCurrentPosArr(), callback);
+        });
+      }
+    }); // end each controlPoint
+
+  }); // end each selector
+}
 		
 	</script>
 	
@@ -650,5 +743,43 @@ opacity= slider.value / 100;
 	  box2.style.transform = 'scale(' + newScale + ')';
     }
    </script>
+<!-- Code injected by live-server -->
+<script>
+	// <![CDATA[  <-- For SVG support
+	if ('WebSocket' in window) {
+		(function () {
+			function refreshCSS() {
+				var sheets = [].slice.call(document.getElementsByTagName("link"));
+				var head = document.getElementsByTagName("head")[0];
+				for (var i = 0; i < sheets.length; ++i) {
+					var elem = sheets[i];
+					var parent = elem.parentElement || head;
+					parent.removeChild(elem);
+					var rel = elem.rel;
+					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+					}
+					parent.appendChild(elem);
+				}
+			}
+			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+			var address = protocol + window.location.host + window.location.pathname + '/ws';
+			var socket = new WebSocket(address);
+			socket.onmessage = function (msg) {
+				if (msg.data == 'reload') window.location.reload();
+				else if (msg.data == 'refreshcss') refreshCSS();
+			};
+			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+				console.log('Live reload enabled.');
+				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+			}
+		})();
+	}
+	else {
+		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+	}
+	// ]]>
+</script>
 </body>
 </html>
