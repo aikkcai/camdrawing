@@ -16,7 +16,9 @@
 }
 	  
 .container_img {
-  position: relative; /* 可选：稳定子元素初始位置 */
+  position: absolute;
+  top: 0;
+  left: 0;
    transform-origin: left top; /* 缩放操作的原点在左上角 */
 }
 
@@ -26,7 +28,9 @@ margin: 0px;
   height: 500px;
   width: 500px;
   border: 0px;
-   position: absolute;
+  position: absolute;
+  top: 0;
+  left: 0;
   background-repeat: no-repeat; /* 避免圖片重複顯示 */
   background-position: left top; /* 将背景图像左上角对齐 */
   z-index: 1;
@@ -41,7 +45,9 @@ margin: 0px;
   height: 500px;
   width: 500px;
   border: 0px;
-   position: absolute;
+  position: absolute;
+  top: 0;
+  left: 0;
   border: 1px solid red;
   background-repeat: no-repeat; /* 避免圖片重複顯示 */
   background-position: left top; /* 将背景图像左上角对齐 */
