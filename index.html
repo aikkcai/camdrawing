@@ -25,8 +25,8 @@
 .box {
 margin: 0px;
   padding: 0px;
-  height: 500px;
-  width: 500px;
+  height: 200px;
+  width: 200px;
   border: 0px;
   position: absolute;
   top: 0;
@@ -42,8 +42,8 @@ margin: 0px;
 .box2 {
 margin: 0px;
   padding: 0px;
-  height: 500px;
-  width: 500px;
+  height: 200px;
+  width: 200px;
   border: 0px;
   position: absolute;
   top: 0;
@@ -103,6 +103,26 @@ margin: 0px;
 
 <body>
 
+
+
+
+  <script>
+
+</script>
+
+
+
+  <video id="video1" class="video1" ></video>
+  
+ <div id="video-container"> 
+ <video id="video" class="video" ></video>
+
+  <div class="container_img">
+<div class="box" id="box"  style="margin: auto"></div>
+<div class="box2" id="box2"  style="margin: auto"></div>
+  </div>
+
+ </div>
 <label for="camId">1. 選擇鏡頭：</label>
 	<select id="camId"></select>
 	<button onclick="startWebcam1()">連結</button>
@@ -209,7 +229,6 @@ margin: 0px;
 
 //var mirrorMode = 0; // 用于跟踪镜像模式，0表示无镜像，1表示左右镜像，2表示上下翻转，3表示左右加上下翻转
 	</script>
-
 <br> 
   	<label for="file-upload"> 2. 上載圖片:</label>
 	<input type="file" id="file-upload"></INPUT>
@@ -230,25 +249,6 @@ margin: 0px;
 	value="50" oninput="updateOpacity(this.value)"/>  
 	<button onclick="mTrans()">不透/y</button>
 	<button onclick="flash_Image()">閃動/f</button>
-  <script>
-
-</script>
-
-
-
-  <video id="video1" class="video1" ></video>
-  
- <div id="video-container"> 
- <video id="video" class="video" ></video>
-
-  <div class="container_img">
-<div class="box" id="box"  style="margin: auto"></div>
-<div class="box2" id="box2"  style="margin: auto"></div>
-  </div>
-
- </div>
-
-
 
 
 
