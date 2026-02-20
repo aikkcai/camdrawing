@@ -546,13 +546,35 @@ fileUpload.addEventListener('change', function(event) {
       // 设置画布大小与图像大小相同
       //canvas.width = getLarger(image.width,image.height);
       //canvas.height = getLarger(image.width,image.height);
-	canvas.width = "500";
-      canvas.height = "500";
+	//canvas.width = "500";
+    //  canvas.height = "500";
 //container_img
       // 将图像绘制到画布上
-      context.drawImage(image, 0, 0);
+    //  context.drawImage(image, 0, 0);
 	  
-	  
+	      // 画布尺寸改为纯数字（修正你之前的错误）
+      var canvasWidth = 500;
+      var canvasHeight = 500;
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+
+      // 核心：计算缩放比例
+      // 取宽、高方向缩放比例的较小值，保证图片完整显示在画布内
+      var scaleX = canvasWidth / image.width;
+      var scaleY = canvasHeight / image.height;
+      var scale = Math.min(scaleX, scaleY);
+      
+      // 计算缩放后的图片宽高
+      var scaledWidth = image.width * scale;
+      var scaledHeight = image.height * scale;
+
+      // 将图片绘制到画布左上角（0, 0），并应用缩放尺寸
+      context.drawImage(
+        image,          // 要绘制的图片
+        0, 0,           // 图片在画布上的x、y坐标（左上角）
+        scaledWidth,    // 图片绘制后的宽度
+        scaledHeight    // 图片绘制后的高度
+      );  
 	  //
 	
 	   var canvas2 = document.createElement('canvas');
