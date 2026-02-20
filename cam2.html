@@ -15,14 +15,14 @@
   border-radius: 8px; /* 可选：圆角，更美观 */
 }
 	  
-.container_img {
+#container_img {
   position: absolute;
   top: 0;
   left: 0;
    transform-origin: left top; /* 缩放操作的原点在左上角 */
 }
 
-#box {
+.box {
 margin: 0px;
   padding: 0px;
   height: 200px;
@@ -236,7 +236,7 @@ margin: 0px;
  <div id="video-container"> 
  <video id="video" class="video" ></video>
 
-  <div class="container_img">
+  <div id="container_img">
 <div class="box" id="box"  style="margin: auto"></div>
 <div class="box2" id="box2"  style="margin: auto"></div>
   </div>
@@ -479,7 +479,7 @@ function makeTransformable(selector, callback) {
 	
 	
    <script>
-  makeTransformable('.box', function(element, H) {});
+  makeTransformable('.container_img', function(element, H) {});
 
 
 	function updateOpacity(value) {
