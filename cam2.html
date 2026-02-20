@@ -544,9 +544,11 @@ fileUpload.addEventListener('change', function(event) {
       var context = canvas.getContext('2d');
 
       // 设置画布大小与图像大小相同
-      canvas.width = getLarger(image.width,image.height);
-      canvas.height = getLarger(image.width,image.height);
-
+      //canvas.width = getLarger(image.width,image.height);
+      //canvas.height = getLarger(image.width,image.height);
+	canvas.width = '200px';
+      canvas.height = '200px';
+//container_img
       // 将图像绘制到画布上
       context.drawImage(image, 0, 0);
 	  
