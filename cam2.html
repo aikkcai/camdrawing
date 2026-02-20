@@ -19,16 +19,16 @@
   position: absolute;
   top: 0;
   left: 0;
-height: 200px;
-  width: 200px;
+height: 500px;
+  width: 500px;
    transform-origin: left top; /* 缩放操作的原点在左上角 */
 }
 
 .box {
 margin: 0px;
   padding: 0px;
-  height: 200px;
-  width: 200px;
+  height: 500px;
+  width: 500px;
   border: 0px;
   position: absolute;
   top: 0;
@@ -44,8 +44,8 @@ margin: 0px;
 #box2 {
 margin: 0px;
   padding: 0px;
-  height: 200px;
-  width: 200px;
+  height: 500px;
+  width: 500px;
   border: 0px;
   position: absolute;
   top: 0;
@@ -546,8 +546,8 @@ fileUpload.addEventListener('change', function(event) {
       // 设置画布大小与图像大小相同
       //canvas.width = getLarger(image.width,image.height);
       //canvas.height = getLarger(image.width,image.height);
-	canvas.width = "200";
-      canvas.height = "200";
+	canvas.width = "500";
+      canvas.height = "500";
 //container_img
       // 将图像绘制到画布上
       context.drawImage(image, 0, 0);
@@ -559,8 +559,8 @@ fileUpload.addEventListener('change', function(event) {
       var context2 = canvas2.getContext('2d');
       //canvas2.width = getLarger(image.width,image.height);
      // canvas2.height = getLarger(image.width,image.height);
-      canvas2.width = "200";
-      canvas2.height ="200";
+      canvas2.width = "500";
+      canvas2.height ="500";
 		
       context2.drawImage(image2, 0, 0);
 
