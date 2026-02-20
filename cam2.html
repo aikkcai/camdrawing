@@ -480,7 +480,7 @@ function makeTransformable(selector, callback) {
 	
    <script>
   //makeTransformable('.container_img', function(element, H) {});
-//makeTransformable('.box2', function(element, H) {});
+makeTransformable('.container_img', function(element, H) {});
 
 	function updateOpacity(value) {
 	 var image = document.getElementById('box');
@@ -670,7 +670,7 @@ fileUpload.addEventListener('change', function(event) {
 	  box2.style.height = getLarger(image.width,image.height)+"px";
 	
       box2.style.backgroundImage = 'url(' + canvas2.toDataURL() + ')';
-	 akeTransformable('.box2', function(element, H) {}); 
+
     };
 
     image.src = event.target.result;
