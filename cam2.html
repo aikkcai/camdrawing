@@ -546,8 +546,8 @@ fileUpload.addEventListener('change', function(event) {
       // 设置画布大小与图像大小相同
       //canvas.width = getLarger(image.width,image.height);
       //canvas.height = getLarger(image.width,image.height);
-	canvas.width = '200px';
-      canvas.height = '200px';
+	canvas.width = "200px";
+      canvas.height = "200px";
 //container_img
       // 将图像绘制到画布上
       context.drawImage(image, 0, 0);
@@ -557,8 +557,11 @@ fileUpload.addEventListener('change', function(event) {
 	
 	   var canvas2 = document.createElement('canvas');
       var context2 = canvas2.getContext('2d');
-      canvas2.width = getLarger(image.width,image.height);
-      canvas2.height = getLarger(image.width,image.height);
+      //canvas2.width = getLarger(image.width,image.height);
+     // canvas2.height = getLarger(image.width,image.height);
+      canvas2.width = "200px";
+      canvas2.height ="200px";
+		
       context2.drawImage(image2, 0, 0);
 
       // 绘制红色对角线
