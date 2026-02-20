@@ -668,6 +668,9 @@ fileUpload.addEventListener('change', function(event) {
       var box = document.querySelector('.box');
 	  //box.style.width = getLarger(image.width,image.height)+"px";
 	  //box.style.height = getLarger(image.width,image.height)+"px";
+
+	  box.style.width = 500;
+	  box.style.height = 500;
 	
       box.style.backgroundImage = 'url(' + canvas.toDataURL() + ')';
 	  
@@ -675,6 +678,9 @@ fileUpload.addEventListener('change', function(event) {
 	   var box2 = document.querySelector('.box2');
 	  //box2.style.width = getLarger(image.width,image.height)+"px";
 	  //box2.style.height = getLarger(image.width,image.height)+"px";
+
+	box2.style.width = 500;
+	  box2.style.height = 500;
 	
       box2.style.backgroundImage = 'url(' + canvas2.toDataURL() + ')';
 
