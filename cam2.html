@@ -236,7 +236,7 @@ margin: 0px;
  <div id="video-container"> 
  <video id="video" class="video" ></video>
 
-  <div id="container_img">
+  <div id="container_img" class="container_img">
 <div class="box" id="box"  style="margin: auto"></div>
 <div class="box2" id="box2"  style="margin: auto"></div>
   </div>
@@ -479,8 +479,8 @@ function makeTransformable(selector, callback) {
 	
 	
    <script>
-  makeTransformable('.container_img', function(element, H) {});
-
+  //makeTransformable('.container_img', function(element, H) {});
+makeTransformable('.box2', function(element, H) {});
 
 	function updateOpacity(value) {
 	 var image = document.getElementById('box');
