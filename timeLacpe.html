@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>缩时摄影拍照工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36D399',
+                        danger: '#F87272',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .backdrop-blur-sm {
+                backdrop-filter: blur(4px);
+            }
+            .shadow-soft {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            .animate-pulse-slow {
+                animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+        }
+    </style>
+</head>
+<body class="font-inter bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- 页面标题 -->
+        <header class="text-center mb-10">
+            <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold text-dark mb-3 text-shadow">
+                <i class="fa-solid fa-video-camera text-primary mr-2"></i>缩时摄影拍照工具
+            </h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">自定义拍摄间隔，自动命名保存，轻松制作专业缩时影片</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧控制面板 -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- 相机控制卡片 -->
+                <div class="bg-white rounded-xl shadow-soft p-6 transform transition-all duration-300 hover:shadow-lg">
+                    <h2 class="text-xl font-bold text-dark mb-4 flex items-center">
+                        <i class="fa-solid fa-camera text-primary mr-2"></i>相机控制
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label for="camera-select" class="block text-sm font-medium text-gray-700 mb-1">选择摄像头</label>
+                            <select id="camera-select" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+                                <option value="">正在检测摄像头...</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="interval" class="block text-sm font-medium text-gray-700 mb-1">拍摄间隔 (秒)</label>
+                            <div class="flex items-center">
+                                <input type="number" id="interval" min="1" max="3600" value="5" 
+                                    class="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+                                <span class="bg-gray-100 px-3 py-2 rounded-r-lg border border-l-0 border-gray-300 text-gray-600">秒</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex space-x-3">
+                            <button id="start-btn" class="flex-1 bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center">
+                                <i class="fa-solid fa-play mr-2"></i>开始拍摄
+                            </button>
+                            <button id="capture-btn" class="flex-1 bg-secondary hover:bg-secondary/90 text-white font-medium py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center">
+                                <i class="fa-solid fa-camera mr-2"></i>立即拍摄
+                            </button>
+                        </div>
+                        
+                        <button id="stop-btn" disabled class="w-full bg-danger/30 hover:bg-danger/40 text-danger font-medium py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center">
+                            <i class="fa-solid fa-stop mr-2"></i>停止拍摄
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 拍摄设置卡片 -->
+                <div class="bg-white rounded-xl shadow-soft p-6 transform transition-all duration-300 hover:shadow-lg">
+                    <h2 class="text-xl font-bold text-dark mb-4 flex items-center">
+                        <i class="fa-solid fa-sliders text-primary mr-2"></i>拍摄设置
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label for="resolution" class="block text-sm font-medium text-gray-700 mb-1">拍摄分辨率</label>
+                            <select id="resolution" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+                                <option value="sd">标清 (640x480)</option>
+                                <option value="hd" selected>高清 (1280x720)</option>
+                                <option value="fhd">全高清 (1920x1080)</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="prefix" class="block text-sm font-medium text-gray-700 mb-1">文件名前缀</label>
+                            <input type="text" id="prefix" value="timelapse_" 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+                        </div>
+                        
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="auto-download" checked 
+                                    class="w-4 h-4 text-primary focus:ring-primary/50 border-gray-300 rounded">
+                                <span class="ml-2 text-sm text-gray-700">自动下载拍摄的照片</span>
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="show-preview" checked 
+                                    class="w-4 h-4 text-primary focus:ring-primary/50 border-gray-300 rounded">
+                                <span class="ml-2 text-sm text-gray-700">显示拍摄预览</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 拍摄统计卡片 -->
+                <div class="bg-white rounded-xl shadow-soft p-6 transform transition-all duration-300 hover:shadow-lg">
+                    <h2 class="text-xl font-bold text-dark mb-4 flex items-center">
+                        <i class="fa-solid fa-chart-line text-primary mr-2"></i>拍摄统计
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <p class="text-xs text-gray-500">总拍摄数</p>
+                                <p id="total-shots" class="text-2xl font-bold text-dark">0</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <p class="text-xs text-gray-500">拍摄时间</p>
+                                <p id="shooting-time" class="text-2xl font-bold text-dark">00:00:00</p>
+                            </div>
+                        </div>
+                        
+                        <div id="next-shoot-container" class="hidden">
+                            <p class="text-sm text-gray-500 mb-1">下次拍摄时间</p>
+                            <p id="next-shoot-time" class="text-lg font-medium text-primary"></p>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                <div id="next-shoot-progress" class="bg-primary h-2 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧相机和预览区域 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 相机预览卡片 -->
+                <div class="bg-white rounded-xl shadow-soft overflow-hidden transform transition-all duration-300 hover:shadow-lg">
+                    <div class="relative aspect-video bg-gray-900 flex items-center justify-center">
+                        <video id="video-preview" class="w-full h-full object-cover" autoplay muted playsinline></video>
+                        
+                        <!-- 无相机提示 -->
+                        <div id="no-camera" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80">
+                            <i class="fa-solid fa-video-slash text-6xl text-gray-500 mb-4"></i>
+                            <p class="text-white text-lg">未检测到摄像头</p>
+                            <p class="text-gray-400 text-sm mt-2">请确保您的设备已连接摄像头并授予访问权限</p>
+                        </div>
+                        
+                        <!-- 拍摄倒计时覆盖层 -->
+                        <div id="countdown-overlay" class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 pointer-events-none transition-opacity duration-300">
+                            <span id="countdown-number" class="text-[clamp(5rem,15vw,10rem)] font-bold text-white text-shadow"></span>
+                        </div>
+                        
+                        <!-- 拍摄成功提示 -->
+                        <div id="capture-success" class="absolute bottom-4 right-4 bg-secondary text-white px-4 py-2 rounded-lg shadow-lg transform translate-y-10 opacity-0 transition-all duration-300 flex items-center">
+                            <i class="fa-solid fa-check-circle mr-2"></i>
+                            <span>拍摄成功</span>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+                        <div class="flex items-center">
+                            <span id="status-indicator" class="w-3 h-3 rounded-full bg-gray-400 mr-2"></span>
+                            <span id="status-text" class="text-sm text-gray-600">就绪</span>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            <i class="fa-solid fa-info-circle mr-1"></i>
+                            <span id="resolution-info">1280 x 720</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 拍摄预览卡片 -->
+                <div id="preview-container" class="bg-white rounded-xl shadow-soft p-6 transform transition-all duration-300 hover:shadow-lg">
+                    <h2 class="text-xl font-bold text-dark mb-4 flex items-center">
+                        <i class="fa-solid fa-images text-primary mr-2"></i>拍摄预览
+                    </h2>
+                    
+                    <div id="preview-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        <div class="col-span-full text-center py-10 text-gray-500">
+                            <i class="fa-solid fa-film text-4xl mb-3"></i>
+                            <p>拍摄的照片将显示在这里</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 页脚 -->
+        <footer class="mt-12 text-center text-gray-500 text-sm">
+            <p>© 2025 缩时摄影拍照工具 | 使用说明：设置间隔时间后点击开始拍摄，系统将按设定时间自动拍照</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM元素
+            const video = document.getElementById('video-preview');
+            const canvas = document.createElement('canvas');
+            const captureBtn = document.getElementById('capture-btn');
+            const startBtn = document.getElementById('start-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            const cameraSelect = document.getElementById('camera-select');
+            const intervalInput = document.getElementById('interval');
+            const prefixInput = document.getElementById('prefix');
+            const autoDownloadCheckbox = document.getElementById('auto-download');
+            const showPreviewCheckbox = document.getElementById('show-preview');
+            const previewContainer = document.getElementById('preview-container');
+            const previewGrid = document.getElementById('preview-grid');
+            const resolutionSelect = document.getElementById('resolution');
+            const resolutionInfo = document.getElementById('resolution-info');
+            const totalShots = document.getElementById('total-shots');
+            const shootingTime = document.getElementById('shooting-time');
+            const nextShootTime = document.getElementById('next-shoot-time');
+            const nextShootProgress = document.getElementById('next-shoot-progress');
+            const nextShootContainer = document.getElementById('next-shoot-container');
+            const statusIndicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            const countdownOverlay = document.getElementById('countdown-overlay');
+            const countdownNumber = document.getElementById('countdown-number');
+            const captureSuccess = document.getElementById('capture-success');
+            const noCamera = document.getElementById('no-camera');
+            
+            // 状态变量
+            let stream = null;
+            let isShooting = false;
+            let captureInterval = null;
+            let shotCount = 0;
+            let startTime = null;
+            let lastCaptureTime = null;
+            let shootingTimer = null;
+            let resolution = { width: 1280, height: 720 };
+            
+            // 初始化
+            initCamera();
+            updateResolutionInfo();
+            
+            // 事件监听
+            startBtn.addEventListener('click', startShooting);
+            stopBtn.addEventListener('click', stopShooting);
+            captureBtn.addEventListener('click', capturePhoto);
+            cameraSelect.addEventListener('change', changeCamera);
+            resolutionSelect.addEventListener('change', updateResolution);
+            showPreviewCheckbox.addEventListener('change', togglePreview);
+            
+            // 初始化相机
+            async function initCamera() {
+                try {
+                    // 获取媒体设备列表
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const cameras = devices.filter(device => device.kind === 'videoinput');
+                    
+                    if (cameras.length === 0) {
+                        cameraSelect.innerHTML = '<option value="">未检测到摄像头</option>';
+                        return;
+                    }
+                    
+                    // 填充相机选择下拉框
+                    cameraSelect.innerHTML = '';
+                    cameras.forEach(camera => {
+                        const option = document.createElement('option');
+                        option.value = camera.deviceId;
+                        option.textContent = camera.label || `摄像头 ${cameraSelect.options.length + 1}`;
+                        cameraSelect.appendChild(option);
+                    });
+                    
+                    // 启动默认相机
+                    await startCamera(cameras[0].deviceId);
+                } catch (error) {
+                    console.error('获取相机设备失败:', error);
+                    noCamera.classList.remove('hidden');
+                }
+            }
+            
+            // 启动相机
+            async function startCamera(deviceId) {
+                try {
+                    // 停止现有流
+                    if (stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+                    
+                    // 根据选择的分辨率设置约束
+                    const constraints = {
+                        video: {
+                            deviceId: { exact: deviceId },
+                            width: { ideal: resolution.width },
+                            height: { ideal: resolution.height }
+                        }
+                    };
+                    
+                    // 获取媒体流
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    video.srcObject = stream;
+                    
+                    // 视频元数据加载后调整画布大小
+                    video.onloadedmetadata = () => {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        updateResolutionInfo();
+                        noCamera.classList.add('hidden');
+                    };
+                } catch (error) {
+                    console.error('启动相机失败:', error);
+                    noCamera.classList.remove('hidden');
+                }
+            }
+            
+            // 切换相机
+            async function changeCamera() {
+                const deviceId = cameraSelect.value;
+                if (deviceId) {
+                    await startCamera(deviceId);
+                }
+            }
+            
+            // 更新分辨率
+            function updateResolution() {
+                const resolutionOption = resolutionSelect.value;
+                
+                switch (resolutionOption) {
+                    case 'sd':
+                        resolution = { width: 640, height: 480 };
+                        break;
+                    case 'hd':
+                        resolution = { width: 1280, height: 720 };
+                        break;
+                    case 'fhd':
+                        resolution = { width: 1920, height: 1080 };
+                        break;
+                }
+                
+                // 如果相机已启动，则重新启动以应用新分辨率
+                if (stream) {
+                    startCamera(cameraSelect.value);
+                }
+                
+                updateResolutionInfo();
+            }
+            
+            // 更新分辨率信息显示
+            function updateResolutionInfo() {
+                resolutionInfo.textContent = `${resolution.width} x ${resolution.height}`;
+            }
+            
+            // 开始自动拍摄
+            function startShooting() {
+                if (isShooting) return;
+                
+                const interval = parseInt(intervalInput.value, 10);
+                if (isNaN(interval) || interval < 1) {
+                    alert('请设置有效的拍摄间隔（至少1秒）');
+                    return;
+                }
+                
+                isShooting = true;
+                shotCount = 0;
+                startTime = new Date();
+                lastCaptureTime = startTime;
+                totalShots.textContent = '0';
+                shootingTime.textContent = '00:00:00';
+                
+                // 更新UI状态
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                captureBtn.disabled = true;
+                cameraSelect.disabled = true;
+                intervalInput.disabled = true;
+                resolutionSelect.disabled = true;
+                
+                startBtn.classList.remove('bg-primary', 'hover:bg-primary/90');
+                startBtn.classList.add('bg-gray-300', 'text-gray-500');
+                
+                stopBtn.classList.remove('bg-danger/30', 'hover:bg-danger/40');
+                stopBtn.classList.add('bg-danger', 'hover:bg-danger/90', 'text-white');
+                
+                statusIndicator.classList.remove('bg-gray-400');
+                statusIndicator.classList.add('bg-secondary', 'animate-pulse');
+                statusText.textContent = '拍摄中...';
+                
+                // 显示下次拍摄时间
+                nextShootContainer.classList.remove('hidden');
+                updateNextShootInfo();
+                
+                // 设置拍摄间隔
+                captureInterval = setInterval(() => {
+                    capturePhoto(true);
+                }, interval * 1000);
+                
+                // 设置计时器更新
+                shootingTimer = setInterval(updateShootingTime, 1000);
+            }
+            
+            // 停止自动拍摄
+            function stopShooting() {
+                if (!isShooting) return;
+                
+                isShooting = false;
+                
+                // 清除定时器
+                clearInterval(captureInterval);
+                clearInterval(shootingTimer);
+                
+                // 更新UI状态
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                captureBtn.disabled = false;
+                cameraSelect.disabled = false;
+                intervalInput.disabled = false;
+                resolutionSelect.disabled = false;
+                
+                startBtn.classList.remove('bg-gray-300', 'text-gray-500');
+                startBtn.classList.add('bg-primary', 'hover:bg-primary/90');
+                
+                stopBtn.classList.remove('bg-danger', 'hover:bg-danger/90', 'text-white');
+                stopBtn.classList.add('bg-danger/30', 'hover:bg-danger/40');
+                
+                statusIndicator.classList.remove('bg-secondary', 'animate-pulse');
+                statusIndicator.classList.add('bg-gray-400');
+                statusText.textContent = '就绪';
+                
+                // 隐藏下次拍摄时间
+                nextShootContainer.classList.add('hidden');
+            }
+            
+            // 拍摄照片
+            function capturePhoto(isAuto = false) {
+                if (!stream) return;
+                
+                // 显示倒计时
+                if (isAuto) {
+                    showCountdown();
+                }
+                
+                // 设置延迟以确保倒计时显示完成
+                setTimeout(() => {
+                    // 绘制当前视频帧到画布
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    // 生成文件名
+                    const now = new Date();
+                    const filename = generateFilename(now);
+                    
+                    // 将画布内容转换为图像URL
+                    const imageUrl = canvas.toDataURL('image/jpeg', 0.9);
+                    
+                    // 保存照片
+                    if (autoDownloadCheckbox.checked) {
+                        downloadImage(imageUrl, filename);
+                    }
+                    
+                    // 更新统计
+                    shotCount++;
+                    totalShots.textContent = shotCount;
+                    lastCaptureTime = now;
+                    
+                    // 更新预览
+                    if (showPreviewCheckbox.checked) {
+                        addPreviewImage(imageUrl, filename);
+                    }
+                    
+                    // 显示成功提示
+                    showCaptureSuccess();
+                    
+                    // 更新下次拍摄信息
+                    if (isAuto) {
+                        updateNextShootInfo();
+                    }
+                }, isAuto ? 1000 : 0);
+            }
+            
+            // 生成文件名
+            function generateFilename(date) {
+                const prefix = prefixInput.value.trim() || 'timelapse_';
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                
+                return `${prefix}${year}${month}${day}_${hours}${minutes}${seconds}.jpg`;
+            }
+            
+            // 下载图像
+            function downloadImage(dataUrl, filename) {
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            
+            // 添加预览图像
+            function addPreviewImage(imageUrl, filename) {
+                // 如果是第一张照片，清空提示文本
+                if (shotCount === 1) {
+                    previewGrid.innerHTML = '';
+                }
+                
+                // 创建预览图像元素
+                const previewItem = document.createElement('div');
+                previewItem.className = 'group relative overflow-hidden rounded-lg shadow transition-all duration-300 hover:shadow-md hover:scale-[1.02]';
+                
+                const image = document.createElement('img');
+                image.src = imageUrl;
+                image.className = 'w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110';
+                
+                const overlay = document.createElement('div');
+                overlay.className = 'absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3';
+                
+                const filenameText = document.createElement('p');
+                filenameText.className = 'text-white text-xs truncate';
+                filenameText.textContent = filename;
+                
+                const downloadBtn = document.createElement('button');
+                downloadBtn.className = 'absolute top-2 right-2 bg-white/20 hover:bg-white/40 text-white p-1.5 rounded-full backdrop-blur-sm transition-all duration-300 transform translate-y-2 group-hover:translate-y-0';
+                downloadBtn.innerHTML = '<i class="fa-solid fa-download"></i>';
+                downloadBtn.addEventListener('click', () => downloadImage(imageUrl, filename));
+                
+                overlay.appendChild(filenameText);
+                previewItem.appendChild(image);
+                previewItem.appendChild(overlay);
+                previewItem.appendChild(downloadBtn);
+                
+                // 添加到预览网格
+                previewGrid.prepend(previewItem);
+            }
+            
+            // 显示倒计时
+            function showCountdown() {
+                countdownOverlay.style.opacity = '1';
+                
+                // 3, 2, 1 倒计时
+                let count = 3;
+                countdownNumber.textContent = count;
+                
+                const countdownTimer = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        countdownNumber.textContent = count;
+                    } else {
+                        clearInterval(countdownTimer);
+                        countdownOverlay.style.opacity = '0';
+                    }
+                }, 1000);
+            }
+            
+            // 显示拍摄成功提示
+            function showCaptureSuccess() {
+                captureSuccess.style.transform = 'translate-y-0';
+                captureSuccess.style.opacity = '1';
+                
+                setTimeout(() => {
+                    captureSuccess.style.transform = 'translate-y-10';
+                    captureSuccess.style.opacity = '0';
+                }, 2000);
+            }
+            
+            // 更新拍摄时间显示
+            function updateShootingTime() {
+                if (!startTime) return;
+                
+                const now = new Date();
+                const duration = Math.floor((now - startTime) / 1000);
+                
+                const hours = Math.floor(duration / 3600);
+                const minutes = Math.floor((duration % 3600) / 60);
+                const seconds = duration % 60;
+                
+                shootingTime.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+            
+            // 更新下次拍摄信息
+            function updateNextShootInfo() {
+                if (!lastCaptureTime) return;
+                
+                const interval = parseInt(intervalInput.value, 10);
+                const nextTime = new Date(lastCaptureTime.getTime() + interval * 1000);
+                
+                // 格式化下次拍摄时间
+                const hours = String(nextTime.getHours()).padStart(2, '0');
+                const minutes = String(nextTime.getMinutes()).padStart(2, '0');
+                const seconds = String(nextTime.getSeconds()).padStart(2, '0');
+                
+                nextShootTime.textContent = `${hours}:${minutes}:${seconds}`;
+                
+                // 更新进度条
+                const now = new Date();
+                const progress = Math.min(100, Math.max(0, (now - lastCaptureTime) / (interval * 1000) * 100));
+                nextShootProgress.style.width = `${progress}%`;
+                
+                // 每秒更新进度条
+                const progressInterval = setInterval(() => {
+                    if (!isShooting) {
+                        clearInterval(progressInterval);
+                        return;
+                    }
+                    
+                    const now = new Date();
+                    const progress = Math.min(100, Math.max(0, (now - lastCaptureTime) / (interval * 1000) * 100));
+                    nextShootProgress.style.width = `${progress}%`;
+                    
+                    // 当进度达到100%时清除定时器
+                    if (progress >= 100) {
+                        clearInterval(progressInterval);
+                    }
+                }, 500);
+            }
+            
+            // 切换预览显示
+            function togglePreview() {
+                if (showPreviewCheckbox.checked) {
+                    previewContainer.classList.remove('hidden');
+                } else {
+                    previewContainer.classList.add('hidden');
+                }
+            }
+            
+            // 页面卸载时清理资源
+            window.addEventListener('beforeunload', () => {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                
+                if (captureInterval) {
+                    clearInterval(captureInterval);
+                }
+                
+                if (shootingTimer) {
+                    clearInterval(shootingTimer);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
