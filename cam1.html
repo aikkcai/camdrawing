@@ -231,6 +231,13 @@
   <span id="colorValue">30</span> 色
 </div>
 
+<!-- 新增：线条画临界值滑块（默认隐藏） -->
+<div class="control-group" id="lineArtSliderContainer" style="display: none; margin-top: 10px;">
+  <label>线条画临界值（值越小线条越多）：</label>
+  <input id="slider1" type="range" min="0" max="255" step="5" value="120" oninput="updateLineArtThreshold(this.value)" />
+  <span id="thresholdValue">120</span>
+</div>
+
   <div class="control-group">
     <button onclick="zoomIn()" class="btn-large-1">放大/i</button>
     <button onclick="zoomOut()" class="btn-large-1">缩小/o</button>
@@ -493,6 +500,8 @@ H&&(H=D,T=b)}}P=0;for(b=N+1;b<=N+o;b+=1)P+=g[b]*g[b];if(Math.abs(P)<=U){if(q)ret
     // 全局变量：存储原始图片和当前色彩数量
     let originalUploadedImage = null;
     let currentColorCount = 30;
+    let isLineArtMode = false;
+    let lineArtThreshold = 120; // 线条画临界值（新增）
 
     function updateOpacity(value) {
       var image = document.getElementById('box');
@@ -500,22 +509,27 @@ H&&(H=D,T=b)}}P=0;for(b=N+1;b<=N+o;b+=1)P+=g[b]*g[b];if(Math.abs(P)<=U){if(q)ret
       image.style.opacity = opacity;
     }
 
-    let isLineArtMode = false;
-    // 新增：更新色彩数量显示并重新处理图片
-// 修改updateColorCount函数，增加线条画判断
+
+// 修改updateColorCount函数：增加滑块显示/隐藏逻辑
 function updateColorCount(value) {
   // 重置线条画模式标记
   isLineArtMode = false;
+  // 获取滑块容器
+  const sliderContainer = document.getElementById('lineArtSliderContainer');
   
   // 判断是否选择了线条画模式
   if (value === 'line_art') {
     isLineArtMode = true;
     document.getElementById('colorValue').textContent = "线条画";
+    // 显示临界值滑块
+    sliderContainer.style.display = 'block';
     if (originalUploadedImage) {
       renderLineArtImage(originalUploadedImage); // 执行线条画处理
       alert("Completed!");
     }
   } else {
+    // 隐藏临界值滑块
+    sliderContainer.style.display = 'none';
     // 原有色彩数量逻辑
     const colorCount = Number(value) || 30;
     document.getElementById('colorValue').textContent = colorCount;
@@ -524,6 +538,16 @@ function updateColorCount(value) {
       renderProcessedImage(originalUploadedImage, currentColorCount);
       alert("Completed!");
     }
+  }
+}
+
+// 新增：更新线条画临界值并重新渲染
+function updateLineArtThreshold(value) {
+  lineArtThreshold = Number(value);
+  document.getElementById('thresholdValue').textContent = value;
+  // 仅在线条画模式下重新渲染
+  if (isLineArtMode && originalUploadedImage) {
+    renderLineArtImage(originalUploadedImage);
   }
 }
 
@@ -613,8 +637,8 @@ function createLineArt(canvas) {
 
       // 计算梯度幅值（边缘强度）
       var magnitude = Math.sqrt(gx * gx + gy * gy);
-      // 阈值过滤（可调整100~150，值越小线条越多）
-      var edge = magnitude > 120 ? 0 : 255;
+      // 使用动态临界值（替代固定的120）
+      var edge = magnitude > lineArtThreshold ? 0 : 255;
 
       // 设置线条颜色（黑色线条，透明背景）
       sobelPixels[idx] = edge;         // R
@@ -651,7 +675,7 @@ function createLineArt(canvas) {
     var video = document.getElementById('video');
     var video1 = document.getElementById('video1');
 
-   var fileUpload = document.getElementById('file-upload');
+var fileUpload = document.getElementById('file-upload');
 fileUpload.addEventListener('change', function (event) {
   var file = event.target.files[0];
   if (!file || !file.type.startsWith('image/')) {
@@ -663,8 +687,13 @@ fileUpload.addEventListener('change', function (event) {
   reader.onload = function (event) {
     var image = new Image();
     image.onload = function () {
-      // 重置线条画模式
+      // 重置线条画模式和滑块
       isLineArtMode = false;
+      lineArtThreshold = 120; // 重置临界值
+      document.getElementById('slider1').value = 120;
+      document.getElementById('thresholdValue').textContent = 120;
+      document.getElementById('lineArtSliderContainer').style.display = 'none'; // 隐藏滑块
+      
       originalUploadedImage = image;
 
       var width = image.width;
@@ -685,7 +714,6 @@ fileUpload.addEventListener('change', function (event) {
   };
   reader.readAsDataURL(file);
 });
-
     /**
      * 绘制处理后的图片（带色彩量化）
      * @param {Image} image - 原始图片
