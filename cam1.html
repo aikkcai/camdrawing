@@ -225,10 +225,11 @@
     <option value="60">60</option>
     <option value="128">128</option>
     <option value="256">256 (原图色)</option>
+    <!-- 新增黑白线条画选项 -->
+    <option value="line_art">黑白线条画（透明背景）</option>
   </select>
   <span id="colorValue">30</span> 色
-
-  </div>
+</div>
 
   <div class="control-group">
     <button onclick="zoomIn()" class="btn-large-1">放大/i</button>
@@ -499,16 +500,134 @@ H&&(H=D,T=b)}}P=0;for(b=N+1;b<=N+o;b+=1)P+=g[b]*g[b];if(Math.abs(P)<=U){if(q)ret
       image.style.opacity = opacity;
     }
 
+    let isLineArtMode = false;
     // 新增：更新色彩数量显示并重新处理图片
+// 修改updateColorCount函数，增加线条画判断
 function updateColorCount(value) {
-  // 确保value是有效数字（避免选择默认提示项的空值）
-  const colorCount = Number(value) || 30;
-  document.getElementById('colorValue').textContent = colorCount;
-  currentColorCount = colorCount;
-  if (originalUploadedImage) {
-    renderProcessedImage(originalUploadedImage, currentColorCount);
-    alert("Completed!");
+  // 重置线条画模式标记
+  isLineArtMode = false;
+  
+  // 判断是否选择了线条画模式
+  if (value === 'line_art') {
+    isLineArtMode = true;
+    document.getElementById('colorValue').textContent = "线条画";
+    if (originalUploadedImage) {
+      renderLineArtImage(originalUploadedImage); // 执行线条画处理
+      alert("Completed!");
+    }
+  } else {
+    // 原有色彩数量逻辑
+    const colorCount = Number(value) || 30;
+    document.getElementById('colorValue').textContent = colorCount;
+    currentColorCount = colorCount;
+    if (originalUploadedImage) {
+      renderProcessedImage(originalUploadedImage, currentColorCount);
+      alert("Completed!");
+    }
   }
+}
+
+// 新增：渲染黑白线条画（透明背景）
+function renderLineArtImage(image) {
+  var canvas = document.createElement('canvas');
+  var context = canvas.getContext('2d');
+  var canvasWidth = 500;
+  var canvasHeight = 500;
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+
+  // 计算缩放比例
+  var scaleX = canvasWidth / image.width;
+  var scaleY = canvasHeight / image.height;
+  var scale = Math.min(scaleX, scaleY);
+  var scaledWidth = image.width * scale;
+  var scaledHeight = image.height * scale;
+
+  // 临时画布处理线条画
+  var tempCanvas = document.createElement('canvas');
+  tempCanvas.width = image.width;
+  tempCanvas.height = image.height;
+  var tempCtx = tempCanvas.getContext('2d');
+  tempCtx.drawImage(image, 0, 0);
+
+  // 处理成黑白线条画（透明背景）
+  var lineArtCanvas = createLineArt(tempCanvas);
+
+  // 绘制到目标画布
+  context.clearRect(0, 0, canvasWidth, canvasHeight);
+  context.drawImage(lineArtCanvas, 0, 0, scaledWidth, scaledHeight);
+
+  // 更新到box容器（背景透明）
+  var box = document.querySelector('.box');
+  box.style.width = "500px";
+  box.style.height = "500px";
+  box.style.backgroundImage = 'url(' + canvas.toDataURL('image/png') + ')'; // 必须用PNG保证透明
+}
+
+// 新增：核心函数 - 将图片转为黑白线条画（透明背景）
+function createLineArt(canvas) {
+  var ctx = canvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  var pixels = imageData.data;
+  var pixelCount = pixels.length / 4;
+
+  // 1. 先转为灰度图
+  for (var i = 0; i < pixelCount; i++) {
+    var pixelIdx = i * 4;
+    var r = pixels[pixelIdx];
+    var g = pixels[pixelIdx + 1];
+    var b = pixels[pixelIdx + 2];
+    // 计算灰度值（标准公式）
+    var gray = 0.299 * r + 0.587 * g + 0.114 * b;
+    // 替换为灰度值
+    pixels[pixelIdx] = gray;
+    pixels[pixelIdx + 1] = gray;
+    pixels[pixelIdx + 2] = gray;
+  }
+
+  // 2. 边缘检测（Sobel算子）生成线条
+  var sobelData = ctx.createImageData(canvas.width, canvas.height);
+  var sobelPixels = sobelData.data;
+  var width = canvas.width;
+  var height = canvas.height;
+
+  // Sobel算子卷积核
+  var sobelX = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
+  var sobelY = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
+
+  // 遍历像素（跳过边缘）
+  for (var y = 1; y < height - 1; y++) {
+    for (var x = 1; x < width - 1; x++) {
+      var idx = (y * width + x) * 4;
+      var gx = 0, gy = 0;
+
+      // 应用卷积核计算梯度
+      for (var ky = -1; ky <= 1; ky++) {
+        for (var kx = -1; kx <= 1; kx++) {
+          var pixelIdx = ((y + ky) * width + (x + kx)) * 4;
+          var gray = pixels[pixelIdx];
+          gx += gray * sobelX[ky + 1][kx + 1];
+          gy += gray * sobelY[ky + 1][kx + 1];
+        }
+      }
+
+      // 计算梯度幅值（边缘强度）
+      var magnitude = Math.sqrt(gx * gx + gy * gy);
+      // 阈值过滤（可调整100~150，值越小线条越多）
+      var edge = magnitude > 120 ? 0 : 255;
+
+      // 设置线条颜色（黑色线条，透明背景）
+      sobelPixels[idx] = edge;         // R
+      sobelPixels[idx + 1] = edge;     // G
+      sobelPixels[idx + 2] = edge;     // B
+      // 透明背景：边缘处不透明（黑色），非边缘处透明
+      sobelPixels[idx + 3] = edge === 0 ? 255 : 0;
+    }
+  }
+
+  // 将处理后的像素放回画布
+  ctx.putImageData(sobelData, 0, 0);
+  return canvas;
 }
 
     function aTrans() {
@@ -532,42 +651,40 @@ function updateColorCount(value) {
     var video = document.getElementById('video');
     var video1 = document.getElementById('video1');
 
-    var fileUpload = document.getElementById('file-upload');
-    fileUpload.addEventListener('change', function (event) {
-      var file = event.target.files[0];
-      if (!file || !file.type.startsWith('image/')) {
-        document.getElementById('uploadStatus').textContent = '请上传有效的图片文件！';
-        return;
-      }
+   var fileUpload = document.getElementById('file-upload');
+fileUpload.addEventListener('change', function (event) {
+  var file = event.target.files[0];
+  if (!file || !file.type.startsWith('image/')) {
+    document.getElementById('uploadStatus').textContent = '请上传有效的图片文件！';
+    return;
+  }
 
-      var reader = new FileReader();
-      reader.onload = function (event) {
-        var image = new Image();
-        var image2 = new Image();
-        image.onload = function () {
-          // 存储原始图片供色彩调节使用
-          originalUploadedImage = image;
+  var reader = new FileReader();
+  reader.onload = function (event) {
+    var image = new Image();
+    image.onload = function () {
+      // 重置线条画模式
+      isLineArtMode = false;
+      originalUploadedImage = image;
 
-          var width = image.width;
-          var height = image.height;
-          var uploadStatus = document.getElementById('uploadStatus');
-          uploadStatus.textContent = 'Width: ' + width + 'px, Height: ' + height + 'px ,Rate: ' + (width / height).toFixed(2);
+      var width = image.width;
+      var height = image.height;
+      var uploadStatus = document.getElementById('uploadStatus');
+      uploadStatus.textContent = 'Width: ' + width + 'px, Height: ' + height + 'px ,Rate: ' + (width / height).toFixed(2);
 
-          // 初始化色彩滑块值
-          document.getElementById('colorSlider1').value = 30;
-          document.getElementById('colorValue').textContent = 30;
-          currentColorCount = 30;
+      // 初始化下拉框为默认值30
+      document.getElementById('colorSlider1').value = 30;
+      document.getElementById('colorValue').textContent = 30;
+      currentColorCount = 30;
 
-          // 处理图片并绘制
-          renderProcessedImage(image, currentColorCount);
-
-          // 绘制网格线画布
-          drawGridCanvas();
-        };
-        image.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
+      // 处理图片（默认色彩量化）
+      renderProcessedImage(image, currentColorCount);
+      drawGridCanvas();
+    };
+    image.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+});
 
     /**
      * 绘制处理后的图片（带色彩量化）
