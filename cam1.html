@@ -214,10 +214,10 @@
     <div id="uploadStatus">Check width and height of the image before uploading...</div>
   </div>
 
-  <!-- 新增：色彩数量调节滑块 -->
-<div class="control-group">
-  <label>3. 調節圖片色彩數量：</label>
-  <select id="colorSlider1" onchange="updateColorCount(this.value)">
+<!-- 调整布局：将色彩选择和线条画滑块放在同一个 control-group 内，通过 CSS 实现同行显示 -->
+<div class="control-group" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+  <label style="margin: 0;">3. 調節圖片色彩數量：</label>
+  <select id="colorSlider1" onchange="updateColorCount(this.value)" style="margin: 0;">
     <option value="30" selected>30 (默认)</option>
     <option value="5">5</option>
     <option value="10">10</option>
@@ -229,16 +229,14 @@
     <option value="line_art">黑白线条画（透明背景）</option>
   </select>
   <span id="colorValue">30</span> 色
-	  <label>线条画临界值（值越小线条越多）：</label>
-  <input id="slider1" type="range" min="0" max="255" step="5" value="120" oninput="updateLineArtThreshold(this.value)" />
-  <span id="thresholdValue">120</span>
+
+  <!-- 线条画临界值滑块（默认隐藏，同行显示） -->
+  <div id="lineArtSliderContainer" style="display: none; align-items: center; gap: 8px; margin: 0;">
+    <label style="margin: 0;">线条画临界值（值越小线条越多）：</label>
+    <input id="slider1" type="range" min="0" max="255" step="5" value="120" oninput="updateLineArtThreshold(this.value)" style="width: 200px; margin: 0;" />
+    <span id="thresholdValue">120</span>
+  </div>
 </div>
-
-<!-- 新增：线条画临界值滑块（默认隐藏） -->
-<div class="control-group" id="lineArtSliderContainer" style="display: none; margin-top: 10px;">
-
-</div>
-
   <div class="control-group">
     <button onclick="zoomIn()" class="btn-large-1">放大/i</button>
     <button onclick="zoomOut()" class="btn-large-1">缩小/o</button>
