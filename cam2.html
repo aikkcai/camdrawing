@@ -182,8 +182,8 @@ function makeTransformable(selector, callback) {
     $(element).css('transform', '');
     var controlPoints = ['left top', 'left bottom', 'right top', 'right bottom'].map(function(position) {
       return $('<div>').css({
-      border: '50px dashed red', 
-        borderRadius: '50px',
+      border: '10px dashed red', 
+        borderRadius: '10px',
         cursor: 'move',
         position: 'absolute',
         zIndex: 100000
