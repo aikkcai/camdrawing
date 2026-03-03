@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自定义背景</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100 transition-all duration-300 overflow-hidden">
+    <!-- 右上角上传按钮 -->
+	
+
+    <div class="fixed top-4 right-4 z-50 pointer-events-auto">
+	
+	
+			 <button id="zoomBtn" class="group relative flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden">
+            <span class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+           <span id="sizeOfCurrent">--</span>
+        </button>
+	
+	
+        <label for="imageUpload" class="group relative flex items-center justify-center w-14 h-14 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden">
+            <span class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            <i class="fa-solid fa-cloud-arrow-up text-primary text-2xl group-hover:text-white transition-colors duration-300 z-10"></i>
+            <input type="file" id="imageUpload" accept="image/*" class="absolute w-full h-full opacity-0 cursor-pointer">
+        </label>
+		
+	
+		
+		
+    </div>
+    
+    <!-- 右下角缩放控制 -->
+    <div class="fixed bottom-4 right-4 z-50 pointer-events-auto flex flex-col items-center space-y-2">
+        <button id="zoomInBtn" class="group relative flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden">
+            <span class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            <i class="fa-solid fa-search-plus text-primary text-xl group-hover:text-white transition-colors duration-300 z-10"></i>
+        </button>
+		
+
+		
+	
+		
+        <button id="zoomOutBtn" class="group relative flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden">
+            <span class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            <i class="fa-solid fa-search-minus text-primary text-xl group-hover:text-white transition-colors duration-300 z-10"></i>
+        </button>
+    </div>
+    
+    <!-- 左下角方向控制 -->
+    <div class="fixed bottom-4 left-4 z-50 pointer-events-auto grid grid-cols-3 gap-2">
+        <div></div>
+        <button id="moveUpBtn" class="group relative flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden">
+            <span class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            <i class="fa-solid fa-arrow-up text-primary text-xl group-hover:text-white transition-colors duration-300 z-10"></i>
+        </button>
+        <div></div>
+        
+        <button id="moveLeftBtn" class="group relative flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden">
+            <span class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            <i class="fa-solid fa-arrow-left text-primary text-xl group-hover:text-white transition-colors duration-300 z-10"></i>
+        </button>
+        <div></div>
+        <button id="moveRightBtn" class="group relative flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden">
+            <span class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            <i class="fa-solid fa-arrow-right text-primary text-xl group-hover:text-white transition-colors duration-300 z-10"></i>
+        </button>
+        
+        <div></div>
+        <button id="moveDownBtn" class="group relative flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden">
+            <span class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            <i class="fa-solid fa-arrow-down text-primary text-xl group-hover:text-white transition-colors duration-300 z-10"></i>
+        </button>
+        <div></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const imageUpload = document.getElementById('imageUpload');
+            const zoomInBtn = document.getElementById('zoomInBtn');
+			const zoomBtn = document.getElementById('zoomBtn');
+            const zoomOutBtn = document.getElementById('zoomOutBtn');
+            const moveUpBtn = document.getElementById('moveUpBtn');
+            const moveDownBtn = document.getElementById('moveDownBtn');
+            const moveLeftBtn = document.getElementById('moveLeftBtn');
+            const moveRightBtn = document.getElementById('moveRightBtn');
+			const sizeOfCurrent = document.getElementById('sizeOfCurrent');
+			
+            const body = document.body;
+            
+            let currentScale = 1; // 初始缩放比例
+            let backgroundImage = null;
+            let positionX = 0; // 背景水平位置偏移量
+            let positionY = 0; // 背景垂直位置偏移量
+            
+			var visiableR = true;
+            // 禁用鼠标和触摸控制
+            document.addEventListener('wheel', preventDefault, { passive: false });
+            document.addEventListener('touchmove', preventDefault, { passive: false });
+            document.addEventListener('mousedown', preventDefault, { passive: false });
+            document.addEventListener('contextmenu', preventDefault, { passive: false });
+            document.addEventListener('selectstart', preventDefault, { passive: false });
+            
+            function preventDefault(e) {
+                e.preventDefault();
+            }
+            
+            // 允许按钮点击
+            const uploadButton = document.querySelector('label[for="imageUpload"]');
+            const controlButtons = [uploadButton, zoomInBtn,zoomBtn, zoomOutBtn, moveUpBtn, moveDownBtn, moveLeftBtn, moveRightBtn];
+            
+            controlButtons.forEach(button => {
+                button.addEventListener('mousedown', function(e) {
+                    e.stopPropagation();
+                });
+            });
+            
+            // 缩放功能
+            zoomInBtn.addEventListener('click', function() {
+                if (backgroundImage) {
+                    currentScale = Math.min(currentScale + 0.1, 5); // 最大放大到500%
+                    updateBackground();
+                }
+            });
+			
+			
+			zoomBtn.addEventListener('click', function() {
+                if (backgroundImage) {
+                   // currentScale = Math.min(currentScale + 0.1, 5); // 最大放大到500%
+                   // updateBackground();
+				   //alert(currentScale);
+				   
+			//  const controlButtons = [uploadButton, zoomInBtn,zoomBtn, zoomOutBtn, moveUpBtn, moveDownBtn, moveLeftBtn, moveRightBtn];
+
+       
+
+            
+        if(visiableR){
+		
+		uploadButton.style.visibility = 'hidden';
+		zoomInBtn.style.visibility = 'hidden';
+		moveUpBtn.style.visibility = 'hidden';
+		moveDownBtn.style.visibility = 'hidden';
+		moveLeftBtn.style.visibility = 'hidden';
+		moveRightBtn.style.visibility = 'hidden';
+		zoomOutBtn.style.visibility = 'hidden';
+		sizeOfCurrent.textContent = "[ ]";
+		visiableR = false;}
+		else{
+		uploadButton.style.visibility = 'visible';
+		zoomInBtn.style.visibility = 'visible';
+		moveUpBtn.style.visibility = 'visible';
+		moveDownBtn.style.visibility = 'visible';
+		moveLeftBtn.style.visibility = 'visible';
+		moveRightBtn.style.visibility = 'visible';
+		zoomOutBtn.style.visibility = 'visible';
+		sizeOfCurrent.textContent = "--";
+		visiableR = true;
+		}
+		
+	 toggleFullscreen();
+
+
+// 使用示例：绑定到按钮点击事件
+//document.getElementById('zoomBtn').addEventListener('click', toggleFullscreen);
+				   
+				    
+                }
+            });
+          
+
+
+		  
+            zoomOutBtn.addEventListener('click', function() {
+                if (backgroundImage) {
+                    currentScale = Math.max(currentScale - 0.1, 0.5); // 最小缩小到50%
+                    updateBackground();
+                }
+            });
+            
+            // 移动功能
+            moveUpBtn.addEventListener('click', function() {
+                if (backgroundImage) {
+                    positionY = Math.min(positionY + 10, 5000); // 限制最大偏移量
+                    updateBackground();
+                }
+            });
+            
+            moveDownBtn.addEventListener('click', function() {
+                if (backgroundImage) {
+                    positionY = Math.max(positionY - 10, -5000); // 限制最大偏移量
+                    updateBackground();
+                }
+            });
+            
+            moveLeftBtn.addEventListener('click', function() {
+                if (backgroundImage) {
+                    positionX = Math.min(positionX + 10, 5000); // 限制最大偏移量
+                    updateBackground();
+                }
+            });
+            
+            moveRightBtn.addEventListener('click', function() {
+                if (backgroundImage) {
+                    positionX = Math.max(positionX - 10, -5000); // 限制最大偏移量
+                    updateBackground();
+                }
+            });
+            
+            // 上传图片
+            imageUpload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(event) {
+                        backgroundImage = event.target.result;
+                        currentScale = 1; // 重置缩放比例
+                        positionX = 0;    // 重置水平位置
+                        positionY = 0;    // 重置垂直位置
+                        
+                        body.style.backgroundImage = `url('${backgroundImage}')`;
+                        updateBackground();
+                        body.style.backgroundRepeat = 'no-repeat';
+                        body.style.backgroundColor = 'black';
+                        body.classList.add('transition-all', 'duration-300');
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            // 更新背景样式
+            function updateBackground() {
+                body.style.backgroundSize = `calc(100% * ${currentScale}) auto`;
+                body.style.backgroundPosition = `${positionX}px ${positionY}px`;
+           
+			
+			}
+        });
+		
+		
+        // 获取按钮元素
+        const fullscreenBtn = document.getElementById('zoomBtn');
+        
+        // 检查浏览器是否支持全屏API
+        function isFullscreenSupported() {
+            return document.documentElement.requestFullscreen ||
+                   document.documentElement.mozRequestFullScreen ||
+                   document.documentElement.webkitRequestFullscreen ||
+                   document.documentElement.msRequestFullscreen;
+        }
+        
+        // 切换全屏状态
+        function toggleFullscreen() {
+            if (!document.fullscreenElement && 
+                !document.mozFullScreenElement && 
+                !document.webkitFullscreenElement && 
+                !document.msFullscreenElement) {
+                // 进入全屏
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.mozRequestFullScreen) {
+                    document.documentElement.mozRequestFullScreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+                
+                // 更新按钮样式和文本
+              //  fullscreenBtn.textContent = '退出全屏模式';
+                fullscreenBtn.classList.add('fullscreen');
+            } else {
+                // 退出全屏
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                
+                // 更新按钮样式和文本
+               // fullscreenBtn.textContent = '切换到全屏模式';
+                fullscreenBtn.classList.remove('fullscreen');
+            }
+        }
+        
+        // 如果浏览器支持全屏API，则添加按钮点击事件
+        if (isFullscreenSupported()) {
+            fullscreenBtn.addEventListener('click', toggleFullscreen);
+            
+            // 监听全屏状态变化，确保按钮状态与实际全屏状态一致
+            document.addEventListener('fullscreenchange', updateButtonState);
+            document.addEventListener('mozfullscreenchange', updateButtonState);
+            document.addEventListener('webkitfullscreenchange', updateButtonState);
+            document.addEventListener('MSFullscreenChange', updateButtonState);
+        } else {
+            // 如果不支持全屏API，禁用按钮并显示提示
+            fullscreenBtn.disabled = true;
+            fullscreenBtn.textContent = '您的浏览器不支持全屏功能';
+            fullscreenBtn.classList.add('disabled');
+        }
+        
+        // 更新按钮状态
+        function updateButtonState() {
+            if (document.fullscreenElement || 
+                document.mozFullScreenElement || 
+                document.webkitFullscreenElement || 
+                document.msFullscreenElement) {
+              //  fullscreenBtn.textContent = '退出全屏模式';
+             //   fullscreenBtn.classList.add('fullscreen');
+            } else {
+              //  fullscreenBtn.textContent = '切换到全屏模式';
+             //   fullscreenBtn.classList.remove('fullscreen');
+            }
+        }
+   </script>
+</body>
+</html>
