@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Image Cropper</title>
+    <style>
+      canvas {
+        border: 1px solid black;
+      }
+      #cropRect {
+        position: absolute;
+        border: 2px solid red;
+        box-sizing: border-box;
+      }
+    </style>
+  </head>
+  <body>
+    <label for="imageUploader">Upload Image:</label>
+    <input type="file" id="imageUploader" accept="image/*"><br><br>
+    <label for="ratio">Ratio:</label>
+	 <button id="increaseWidth" onclick="changeFaction(0.1)">+</button>
+    <input type="number" id="ratio" value='1' />
+	 <button id="discreaseWidth"  onclick="changeFaction(-0.1)">-</button><br>
+	 
+		  <br>
+    <label for="Enlarge">Resize:</label>
+	 <button id="EnlargeWidth" onclick="scaleCropRect(1.01)">+</button>
+	  <button id="dislargeWidth" onclick="scaleCropRect(0.99)">-</button>
+	    <br>
+	  <br>
+
+	 
+	
+    <label for="moving">Move:</label>
+	 <button  onclick=" moveCropRect(0, -moveStep)">UP</button>
+	  <button  onclick=" moveCropRect(0, moveStep);">DOWN</button>
+	  	 <button  onclick="moveCropRect(-moveStep, 0)">LEFT</button>
+	  <button  onclick="moveCropRect(moveStep, 0)">RIGHT</button>
+	  
+	    <br>
+	  <br>
+	  
+    <button id="saveButton">Save Image</button><br><br>
+    <canvas id="canvas"></canvas>
+    <script>
+	
+
+	
+	function changeFaction(v){
+	var tempV = document.getElementById('ratio').value*1;
+	tempV+=v;
+	document.getElementById('ratio').value = tempV.toFixed(2);
+	setCropRectSize();
+	}
+	
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const cropRect = {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0
+      };
+      let image = null;
+      let imageWidth = 0;
+      let imageHeight = 0;
+      let ratio = 0;
+      const moveStep = 10;
+
+      function loadImage(file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const img = new Image();
+          img.onload = function() {
+            image = img;
+            imageWidth = img.width;
+            imageHeight = img.height;
+            canvas.width = imageWidth;
+            canvas.height = imageHeight;
+            ctx.drawImage(image, 0, 0);
+            setCropRectSize();
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+
+      function setCropRectSize() {
+        ratio = parseFloat(document.getElementById('ratio').value);
+        if (ratio > 0) {
+          if (imageWidth / imageHeight > ratio) {
+            cropRect.width = imageHeight * ratio;
+            cropRect.height = imageHeight;
+          } else {
+            cropRect.width = imageWidth;
+            cropRect.height = imageWidth / ratio;
+          }
+          cropRect.x = (canvas.width - cropRect.width) / 2;
+          cropRect.y = (canvas.height - cropRect.height) / 2;
+          drawCropRect();
+        }
+      }
+
+      function drawCropRect() {
+        ctx.drawImage(image, 0, 0);
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+        ctx.fillRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
+	
+      }
+
+      function moveCropRect(dx, dy) {
+        cropRect.x += dx;
+        cropRect.y += dy;
+        if (cropRect.x < 0) {
+          cropRect.x = 0;
+        }
+        if (cropRect.y < 0) {
+          cropRect.y = 0;
+        }
+        if (cropRect.x + cropRect.width > canvas.width) {
+          cropRect.x = canvas.width - cropRect.width;
+	
+        }
+        if (cropRect.y + cropRect.height > canvas.height) {
+          cropRect.y = canvas.height - cropRect.height;
+        }
+        drawCropRect();
+      }
+
+      function scaleCropRect(scaleFactor) {
+        const newWidth = cropRect.width * scaleFactor;
+        const newHeight = cropRect.height * scaleFactor;
+		
+		
+		if((newWidth>imageWidth)||(newHeight>imageHeight)){
+		alert("超出大小");}else{
+		
+        const deltaX = (cropRect.width - newWidth) / 2;
+        const deltaY = (cropRect.height - newHeight) / 2;
+        cropRect.width = newWidth;
+        cropRect.height = newHeight;
+        cropRect.x += deltaX;
+        cropRect.y += deltaY;
+        if (cropRect.x < 0) {
+          cropRect.x = 0;
+        }
+        if (cropRect.y < 0) {
+          cropRect.y = 0;
+        }
+        if (cropRect.x + cropRect.width > canvas.width) {
+          cropRect.x = canvas.width - cropRect.width;
+		  	
+        }
+        if (cropRect.y + cropRect.height > canvas.height) {
+          cropRect.y = canvas.height - cropRect.height;
+        }
+        drawCropRect();
+		}
+      }
+
+      function handleKeyDown(e) {
+        switch (e.key) {
+          case 'ArrowLeft':
+            moveCropRect(-moveStep, 0);
+            break;
+          case 'ArrowUp':
+            moveCropRect(0, -moveStep);
+            break;
+          case 'ArrowRight':
+            moveCropRect(moveStep, 0);
+            break;
+          case 'ArrowDown':
+            moveCropRect(0, moveStep);
+            break;
+          case 'i':
+            scaleCropRect(1.01);
+            break;
+          case 'o':
+            scaleCropRect(0.99);
+            break;
+          default:
+            break;
+        }
+      }
+
+      function saveImage() {
+        const croppedCanvas = document.createElement('canvas');
+        croppedCanvas.width = cropRect.width;
+        croppedCanvas.height = cropRect.height;
+        const croppedCtx = croppedCanvas.getContext('2d');
+        croppedCtx.drawImage(image, cropRect.x, cropRect.y, cropRect.width, cropRect.height, 0, 0, cropRect.width, cropRect.height);
+        const downloadLink = document.createElement('a');
+        downloadLink.setAttribute('download', 'cropped-image.png');
+        downloadLink.setAttribute('href', croppedCanvas.toDataURL());
+        downloadLink.click();
+      }
+
+      document.getElementById('imageUploader').addEventListener('change', function(e) {
+        loadImage(e.target.files[0]);
+      });
+
+      document.getElementById('ratio').addEventListener('input', function() {
+        setCropRectSize();
+      });
+
+      document.addEventListener('keydown', handleKeyDown);
+
+      document.getElementById('saveButton').addEventListener('click', function() {
+        saveImage();
+      });
+    </script>
+  </body>
+</html>
