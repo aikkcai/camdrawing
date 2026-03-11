@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>线条画生成器</title>
+    <title>线条画生成器V1.0</title>
     <style>
         * {
             margin: 0;
@@ -83,10 +83,12 @@
             position: relative;
         }
 
-        canvas, video {
+        canvas, video, #image-input {
             width: 100%;
             height: 100%;
-            object-fit: contain;
+            object-fit: contain; /* 确保完整显示 */
+            display: block;
+            margin: 0 auto;
         }
 
         #status {
@@ -130,6 +132,17 @@
             <div id="img-controls">
                 <input type="file" id="image-upload" accept="image/*">
                 <button id="process-img">处理图片</button>
+                <!-- 新增：缩放比例控制 -->
+                <div class="control-group">
+                    <label>处理缩放比例: 
+                        <select id="scale-ratio">
+                            <option value="0.25">25% (最快)</option>
+                            <option value="0.5" selected>50% (平衡)</option>
+                            <option value="0.75">75% (较清晰)</option>
+                            <option value="1">100% (最清晰)</option>
+                        </select>
+                    </label>
+                </div>
             </div>
 
             <!-- 摄像头模式控件 -->
@@ -278,6 +291,8 @@
 
         // 你的核心算法
         function SobelFilter(getPixel) {
+            const width = config.width; // 修改：使用config中的宽高
+            const height = config.height;
             const pixData = Array(width);
             let i = 0;
 
@@ -307,6 +322,8 @@
         }
 
         function getdotsV(pixData) {
+            const width = config.width;
+            const height = config.height;
             const dots = [];
             for (let y=0; y<height-1; y++) {
                 const row = [];
@@ -323,6 +340,8 @@
         }
 
         function getdotsH(pixData) {
+            const width = config.width;
+            const height = config.height;
             const dots = [];
             for (let x=0; x<width-1; x++) {
                 const row = [];
@@ -339,6 +358,7 @@
         }
 
         function connectdotsV(dots) {
+            const height = config.height;
             let contours=[];
             for (let y in dots) {
                 y=Number(y);
@@ -378,6 +398,7 @@
         }
 
         function connectdotsH(dots) {
+            const width = config.width;
             let contours=[];
             for (let x in dots) {
                 x=Number(x);
@@ -408,7 +429,6 @@
                     }
                 }
                 for (let c in contours){
-                    // 修复bug: last[0] 而不是 last[x]
                     if (contours[c][contours[c].length-1][0] < x-1 && contours[c].length<4) {
                         contours.splice(c,1);
                     }
@@ -456,6 +476,8 @@
 
         function hatch2(getPixel, sc) {
             postMessage(['msg', "生成阴影线..."]);
+            const width = config.width;
+            const height = config.height;
             let lines = [];
 
             // 水平阴影线
@@ -529,10 +551,9 @@
             [ config, pixData ] = e.data;
             if (!config.Contours && !config.Hatching) return;
             
-            width = pixData.width;
-            height = pixData.height;
-            config.width = width;
-            config.height = height;
+            // 使用缩放后的宽高
+            width = config.width;
+            height = config.height;
 
             postMessage(['msg', "处理中..."]);
 
@@ -550,7 +571,16 @@
                 output = sortlines(output);
             }
 
-            postMessage(['result', output]);
+            // 将坐标还原到原始尺寸
+            const scaleRatio = 1 / config.scaleRatio;
+            const scaledOutput = output.map(line => 
+                line.map(point => [
+                    point[0] * scaleRatio,
+                    point[1] * scaleRatio
+                ])
+            );
+
+            postMessage(['result', scaledOutput]);
             postMessage(['msg', "完成!"]);
         };
     </script>
@@ -572,6 +602,7 @@
         const inputCanvas = document.getElementById('input-canvas');
         const outputCanvas = document.getElementById('output-canvas');
         const statusText = document.getElementById('status');
+        const scaleRatioSelect = document.getElementById('scale-ratio'); // 新增缩放选择器
         
         // 参数控件
         const contoursCheckbox = document.getElementById('contours');
@@ -683,13 +714,28 @@
                 return;
             }
             
-            // 绘制图片到canvas
-            inputCanvas.width = imageInput.naturalWidth;
-            inputCanvas.height = imageInput.naturalHeight;
-            inputCtx.drawImage(imageInput, 0, 0);
+            // 获取缩放比例
+            const scaleRatio = parseFloat(scaleRatioSelect.value);
+            
+            // 计算缩放后的尺寸
+            const originalWidth = imageInput.naturalWidth;
+            const originalHeight = imageInput.naturalHeight;
+            const scaledWidth = Math.floor(originalWidth * scaleRatio);
+            const scaledHeight = Math.floor(originalHeight * scaleRatio);
+            
+            // 设置canvas为缩放后的尺寸
+            inputCanvas.width = scaledWidth;
+            inputCanvas.height = scaledHeight;
+            
+            // 绘制缩放后的图片到canvas
+            inputCtx.drawImage(
+                imageInput, 
+                0, 0, originalWidth, originalHeight, 
+                0, 0, scaledWidth, scaledHeight
+            );
             
             // 获取像素数据并发送到worker
-            processCanvasData(inputCanvas);
+            processCanvasData(inputCanvas, scaleRatio, originalWidth, originalHeight);
         }
 
         // 启动摄像头
@@ -730,19 +776,31 @@
 
         // 捕获摄像头画面
         function captureCameraFrame() {
-            // 设置canvas尺寸匹配视频
-            inputCanvas.width = videoInput.videoWidth || 640;
-            inputCanvas.height = videoInput.videoHeight || 480;
+            // 获取缩放比例
+            const scaleRatio = parseFloat(scaleRatioSelect.value);
             
-            // 绘制视频帧到canvas
-            inputCtx.drawImage(videoInput, 0, 0, inputCanvas.width, inputCanvas.height);
+            // 设置canvas尺寸匹配视频
+            const originalWidth = videoInput.videoWidth || 640;
+            const originalHeight = videoInput.videoHeight || 480;
+            const scaledWidth = Math.floor(originalWidth * scaleRatio);
+            const scaledHeight = Math.floor(originalHeight * scaleRatio);
+            
+            inputCanvas.width = scaledWidth;
+            inputCanvas.height = scaledHeight;
+            
+            // 绘制缩放后的视频帧到canvas
+            inputCtx.drawImage(
+                videoInput, 
+                0, 0, originalWidth, originalHeight, 
+                0, 0, scaledWidth, scaledHeight
+            );
             
             // 处理canvas数据
-            processCanvasData(inputCanvas);
+            processCanvasData(inputCanvas, scaleRatio, originalWidth, originalHeight);
         }
 
         // 处理Canvas像素数据
-        function processCanvasData(canvas) {
+        function processCanvasData(canvas, scaleRatio = 1, originalWidth, originalHeight) {
             try {
                 // 获取配置参数
                 const config = {
@@ -753,15 +811,16 @@
                     'Noise scale': parseFloat(noiseScaleSlider.value) / 10, // 转为0-2范围
                     'Optimize route': optimizeRouteCheckbox.checked,
                     width: canvas.width,
-                    height: canvas.height
+                    height: canvas.height,
+                    scaleRatio: scaleRatio // 传递缩放比例
                 };
                 
                 // 获取像素数据
                 const pixData = inputCtx.getImageData(0, 0, canvas.width, canvas.height);
                 
-                // 清空输出canvas并设置尺寸
-                outputCanvas.width = canvas.width;
-                outputCanvas.height = canvas.height;
+                // 清空输出canvas并设置为原始尺寸
+                outputCanvas.width = originalWidth || canvas.width / scaleRatio;
+                outputCanvas.height = originalHeight || canvas.height / scaleRatio;
                 clearCanvas(outputCanvas);
                 
                 // 发送数据到worker
