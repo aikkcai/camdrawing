@@ -181,6 +181,18 @@
             text-align: right;
             color: #666;
         }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .checkbox-group input {
+            width: 18px;
+            height: 18px;
+        }
     </style>
 </head>
 <body>
@@ -224,6 +236,11 @@
                 <input type="range" id="spacing" min="0.5" max="5" step="0.1" value="1">
                 <span class="value-display" id="spacing-value">1.0</span>
             </div>
+            <!-- 新增：反转灰度值选项 -->
+            <div class="checkbox-group">
+                <input type="checkbox" id="inverted" name="inverted">
+                <label for="inverted">Inverted (反转灰度值)</label>
+            </div>
         </div>
 
         <!-- 预览区域 -->
@@ -256,18 +273,20 @@
 
     <!-- 辅助函数脚本 (模拟 helpers.js) -->
     <script id="helpers-script">
-        // 像素处理函数 - 转换为灰度值
+        // 像素处理函数 - 转换为灰度值（支持反转）
         function pixelProcessor(config, pixData) {
             const width = config.width;
             const height = config.height;
             const data = pixData.data;
+            const inverted = config.Inverted; // 获取反转配置
             
             return function(x, y) {
                 if (x < 0 || x >= width || y < 0 || y >= height) return 0;
                 const idx = (Math.floor(y) * width + Math.floor(x)) * 4;
                 // 计算灰度值 (0-255)
                 const gray = Math.round(0.299 * data[idx] + 0.587 * data[idx+1] + 0.114 * data[idx+2]);
-                return gray;
+                // 如果开启反转，返回 255 - 灰度值
+                return inverted ? 255 - gray : gray;
             };
         }
 
@@ -309,6 +328,7 @@
         const frequencyValue = document.getElementById('frequency-value');
         const amplitudeValue = document.getElementById('amplitude-value');
         const spacingValue = document.getElementById('spacing-value');
+        const invertedCheckbox = document.getElementById('inverted'); // 新增反转复选框
 
         // Canvas 上下文
         const inputCtx = inputCanvas.getContext('2d');
@@ -549,11 +569,12 @@
         // 处理Canvas像素数据
         function processCanvasData(canvas) {
             try {
-                // 获取配置参数
+                // 获取配置参数（新增Inverted参数）
                 const config = {
                     Frequency: frequencySlider.value,
                     Amplitude: amplitudeSlider.value,
                     Spacing: spacingSlider.value,
+                    Inverted: invertedCheckbox.checked, // 传递反转状态
                     width: canvas.width,
                     height: canvas.height
                 };
@@ -568,7 +589,7 @@
                 
                 // 发送数据到worker
                 worker.postMessage([config, pixData]);
-                updateStatus('正在处理图像...');
+                updateStatus(`正在处理图像... ${config.Inverted ? '(反转模式)' : ''}`);
                 
             } catch (error) {
                 updateStatus(`处理失败: ${error.message}`);
@@ -597,7 +618,7 @@
             }
             
             outputCtx.stroke();
-            updateStatus(`成功生成螺旋线条 (${points.length}个点)`);
+            updateStatus(`成功生成螺旋线条 (${points.length}个点) ${invertedCheckbox.checked ? '(反转模式)' : ''}`);
         }
 
         // 下载SVG文件
@@ -628,13 +649,13 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `spiral-art-${new Date().getTime()}.svg`;
+            a.download = `spiral-art-${new Date().getTime()}${invertedCheckbox.checked ? '-inverted' : ''}.svg`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
-            updateStatus('SVG文件已下载');
+            updateStatus(`SVG文件已下载 ${invertedCheckbox.checked ? '(反转模式)' : ''}`);
         }
 
         // 清空Canvas
