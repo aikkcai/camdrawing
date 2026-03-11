@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>螺旋线条生成器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background: #f5f5f5;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 28px;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            padding: 10px 20px;
+            background: #e0e0e0;
+            color: #333;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            background: #2196F3;
+            color: white;
+        }
+
+        .mode-btn:hover:not(.active) {
+            background: #d0d0d0;
+        }
+
+        .controls {
+            background: #f8f8f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .control-group label {
+            min-width: 100px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        input[type="file"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #1976D2;
+        }
+
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .view-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .input-view, .output-view {
+            flex: 1;
+            min-width: 400px;
+            height: 400px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            background: white;
+        }
+
+        .view-title {
+            padding: 10px;
+            background: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            font-weight: 500;
+        }
+
+        .view-content {
+            width: 100%;
+            height: calc(100% - 40px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        canvas, video, img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        #status {
+            text-align: center;
+            margin-top: 15px;
+            color: #666;
+            font-size: 14px;
+            min-height: 20px;
+        }
+
+        .value-display {
+            min-width: 40px;
+            text-align: right;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>螺旋线条生成器</h1>
+        
+        <!-- 模式选择 -->
+        <div class="mode-selector">
+            <button class="mode-btn active" id="img-mode-btn">图片模式</button>
+            <button class="mode-btn" id="cam-mode-btn">摄像头模式</button>
+        </div>
+
+        <!-- 控制区域 -->
+        <div class="controls">
+            <!-- 图片模式控件 -->
+            <div id="img-controls">
+                <input type="file" id="image-upload" accept="image/*">
+                <button id="process-img">生成线条</button>
+            </div>
+
+            <!-- 摄像头模式控件 -->
+            <div id="cam-controls" class="hidden">
+                <button id="start-cam">启动摄像头</button>
+                <button id="stop-cam" disabled>停止摄像头</button>
+                <button id="capture-cam">捕获并生成</button>
+            </div>
+
+            <!-- 参数控制 -->
+            <div class="control-group">
+                <label>Frequency:</label>
+                <input type="range" id="frequency" min="5" max="256" value="150">
+                <span class="value-display" id="frequency-value">150</span>
+            </div>
+            <div class="control-group">
+                <label>Amplitude:</label>
+                <input type="range" id="amplitude" min="0.1" max="5" step="0.1" value="1">
+                <span class="value-display" id="amplitude-value">1.0</span>
+            </div>
+            <div class="control-group">
+                <label>Spacing:</label>
+                <input type="range" id="spacing" min="0.5" max="5" step="0.1" value="1">
+                <span class="value-display" id="spacing-value">1.0</span>
+            </div>
+        </div>
+
+        <!-- 预览区域 -->
+        <div class="view-container">
+            <div class="input-view">
+                <div class="view-title">输入源</div>
+                <div class="view-content">
+                    <video id="video-input" class="hidden" autoplay playsinline></video>
+                    <img id="image-input" class="hidden" alt="上传的图片">
+                    <canvas id="input-canvas" class="hidden"></canvas>
+                </div>
+            </div>
+            <div class="output-view">
+                <div class="view-title">螺旋线条输出</div>
+                <div class="view-content">
+                    <canvas id="output-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="action-buttons">
+            <button id="download-svg">下载SVG文件</button>
+            <button id="clear-btn">清空画布</button>
+        </div>
+
+        <!-- 状态信息 -->
+        <div id="status">就绪</div>
+    </div>
+
+    <!-- 辅助函数脚本 (模拟 helpers.js) -->
+    <script id="helpers-script">
+        // 像素处理函数 - 转换为灰度值
+        function pixelProcessor(config, pixData) {
+            const width = config.width;
+            const height = config.height;
+            const data = pixData.data;
+            
+            return function(x, y) {
+                if (x < 0 || x >= width || y < 0 || y >= height) return 0;
+                const idx = (Math.floor(y) * width + Math.floor(x)) * 4;
+                // 计算灰度值 (0-255)
+                const gray = Math.round(0.299 * data[idx] + 0.587 * data[idx+1] + 0.114 * data[idx+2]);
+                return gray;
+            };
+        }
+
+        // 发送线条数据到主线程
+        function postLines(points) {
+            self.postMessage(['result', points]);
+        }
+
+        // 更新状态信息
+        function updateStatus(msg) {
+            self.postMessage(['status', msg]);
+        }
+    </script>
+
+    <!-- 主脚本 -->
+    <script>
+        // DOM 元素
+        const imgModeBtn = document.getElementById('img-mode-btn');
+        const camModeBtn = document.getElementById('cam-mode-btn');
+        const imgControls = document.getElementById('img-controls');
+        const camControls = document.getElementById('cam-controls');
+        const imageUpload = document.getElementById('image-upload');
+        const processImgBtn = document.getElementById('process-img');
+        const startCamBtn = document.getElementById('start-cam');
+        const stopCamBtn = document.getElementById('stop-cam');
+        const captureCamBtn = document.getElementById('capture-cam');
+        const videoInput = document.getElementById('video-input');
+        const imageInput = document.getElementById('image-input');
+        const inputCanvas = document.getElementById('input-canvas');
+        const outputCanvas = document.getElementById('output-canvas');
+        const downloadSvgBtn = document.getElementById('download-svg');
+        const clearBtn = document.getElementById('clear-btn');
+        const statusText = document.getElementById('status');
+        
+        // 参数控件
+        const frequencySlider = document.getElementById('frequency');
+        const amplitudeSlider = document.getElementById('amplitude');
+        const spacingSlider = document.getElementById('spacing');
+        const frequencyValue = document.getElementById('frequency-value');
+        const amplitudeValue = document.getElementById('amplitude-value');
+        const spacingValue = document.getElementById('spacing-value');
+
+        // Canvas 上下文
+        const inputCtx = inputCanvas.getContext('2d');
+        const outputCtx = outputCanvas.getContext('2d');
+        
+        // 存储生成的点数据（用于SVG导出）
+        let generatedPoints = [];
+        // Worker 实例
+        let worker;
+
+        // 初始化Worker
+        function initWorker() {
+            // 创建包含辅助函数和核心逻辑的Worker脚本
+            const helpersScript = document.getElementById('helpers-script').textContent;
+            const coreScript = `
+                ${helpersScript}
+                
+                onmessage = function(e) {
+                    const [ config, pixData ] = e.data;
+                    updateStatus('开始生成螺旋线条...');
+
+                    const spacing = parseFloat(config.Spacing);
+                    const amplitude = parseFloat(config.Amplitude);
+                    const frequency = parseInt(config.Frequency);
+
+                    const getPixel = pixelProcessor(config, pixData);
+                    let r = 5;
+                    let a = 0;
+
+                    const cx = config.width/2;
+                    const cy = config.height/2;
+                    let points = [];
+                    points.push([cx, cy]);
+                    
+                    let x = cx, y = cy;
+                    let radius = 1;
+                    let theta = 0;
+                    
+                    while (x > 0 && y > 0 && x < config.width && y < config.height) {
+                        const z = getPixel(x, y);
+                        r = amplitude * z * 0.02 * spacing;
+                        a += z / frequency;
+                    
+                        const tempradius = radius + Math.sin(a) * r;
+                        points.push([
+                            cx + tempradius * Math.sin(theta),
+                            cy + tempradius * Math.cos(theta)
+                        ]);
+                       
+                        const incr = Math.asin(1 / radius);
+                        radius += incr * spacing;
+                        theta += incr;
+
+                        x = Math.floor(cx + radius * Math.sin(theta));
+                        y = Math.floor(cy + radius * Math.cos(theta));
+                    }
+
+                    updateStatus('线条生成完成!');
+                    postLines(points);
+                };
+            `;
+
+            const blob = new Blob([coreScript], { type: 'application/javascript' });
+            worker = new Worker(URL.createObjectURL(blob));
+            
+            // 处理Worker消息
+            worker.onmessage = function(e) {
+                if (e.data[0] === 'result') {
+                    generatedPoints = e.data[1];
+                    drawSpiralLines(generatedPoints);
+                } else if (e.data[0] === 'status') {
+                    updateStatus(e.data[1]);
+                }
+            };
+            
+            worker.onerror = function(error) {
+                updateStatus(`错误: ${error.message} (行 ${error.lineno})`);
+                console.error('Worker 错误:', error);
+            };
+        }
+
+        // 初始化
+        window.addEventListener('load', () => {
+            initWorker();
+            setupEventListeners();
+            updateSliderValues();
+            clearCanvas(outputCanvas);
+        });
+
+        // 设置事件监听
+        function setupEventListeners() {
+            // 模式切换
+            imgModeBtn.addEventListener('click', () => switchMode('img'));
+            camModeBtn.addEventListener('click', () => switchMode('cam'));
+            
+            // 图片上传
+            imageUpload.addEventListener('change', handleImageUpload);
+            
+            // 处理图片
+            processImgBtn.addEventListener('click', processImage);
+            
+            // 摄像头控制
+            startCamBtn.addEventListener('click', startCamera);
+            stopCamBtn.addEventListener('click', stopCamera);
+            captureCamBtn.addEventListener('click', captureCameraFrame);
+            
+            // 参数滑块
+            frequencySlider.addEventListener('input', updateSliderValues);
+            amplitudeSlider.addEventListener('input', updateSliderValues);
+            spacingSlider.addEventListener('input', updateSliderValues);
+            
+            // 操作按钮
+            downloadSvgBtn.addEventListener('click', downloadSVG);
+            clearBtn.addEventListener('click', () => {
+                clearCanvas(outputCanvas);
+                generatedPoints = [];
+                updateStatus('画布已清空');
+            });
+        }
+
+        // 更新滑块显示值
+        function updateSliderValues() {
+            frequencyValue.textContent = frequencySlider.value;
+            amplitudeValue.textContent = parseFloat(amplitudeSlider.value).toFixed(1);
+            spacingValue.textContent = parseFloat(spacingSlider.value).toFixed(1);
+        }
+
+        // 模式切换
+        function switchMode(mode) {
+            if (mode === 'img') {
+                imgModeBtn.classList.add('active');
+                camModeBtn.classList.remove('active');
+                imgControls.classList.remove('hidden');
+                camControls.classList.add('hidden');
+                stopCamera(); // 停止摄像头
+                hideAllInputs();
+            } else {
+                imgModeBtn.classList.remove('active');
+                camModeBtn.classList.add('active');
+                imgControls.classList.add('hidden');
+                camControls.classList.remove('hidden');
+                hideAllInputs();
+            }
+            clearCanvas(outputCanvas);
+            generatedPoints = [];
+            updateStatus('就绪');
+        }
+
+        // 隐藏所有输入源
+        function hideAllInputs() {
+            videoInput.classList.add('hidden');
+            imageInput.classList.add('hidden');
+            inputCanvas.classList.add('hidden');
+        }
+
+        // 处理图片上传
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                imageInput.src = event.target.result;
+                imageInput.onload = function() {
+                    hideAllInputs();
+                    imageInput.classList.remove('hidden');
+                    updateStatus('图片已上传，点击"生成线条"开始转换');
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 处理图片
+        function processImage() {
+            if (!imageInput.src) {
+                updateStatus('请先上传图片');
+                return;
+            }
+            
+            // 设置input canvas尺寸
+            inputCanvas.width = imageInput.naturalWidth;
+            inputCanvas.height = imageInput.naturalHeight;
+            inputCtx.drawImage(imageInput, 0, 0);
+            
+            // 处理canvas数据
+            processCanvasData(inputCanvas);
+        }
+
+        // 启动摄像头
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                
+                videoInput.srcObject = stream;
+                hideAllInputs();
+                videoInput.classList.remove('hidden');
+                
+                startCamBtn.disabled = true;
+                stopCamBtn.disabled = false;
+                captureCamBtn.disabled = false;
+                updateStatus('摄像头已启动，点击"捕获并生成"创建线条画');
+            } catch (error) {
+                updateStatus(`摄像头启动失败: ${error.message}`);
+                console.error(error);
+            }
+        }
+
+        // 停止摄像头
+        function stopCamera() {
+            if (videoInput.srcObject) {
+                const stream = videoInput.srcObject;
+                stream.getTracks().forEach(track => track.stop());
+                videoInput.srcObject = null;
+            }
+            
+            videoInput.classList.add('hidden');
+            startCamBtn.disabled = false;
+            stopCamBtn.disabled = true;
+            captureCamBtn.disabled = true;
+            updateStatus('摄像头已停止');
+        }
+
+        // 捕获摄像头画面
+        function captureCameraFrame() {
+            // 设置canvas尺寸匹配视频
+            inputCanvas.width = videoInput.videoWidth || 640;
+            inputCanvas.height = videoInput.videoHeight || 480;
+            
+            // 绘制视频帧到canvas
+            inputCtx.drawImage(videoInput, 0, 0, inputCanvas.width, inputCanvas.height);
+            
+            // 处理canvas数据
+            processCanvasData(inputCanvas);
+        }
+
+        // 处理Canvas像素数据
+        function processCanvasData(canvas) {
+            try {
+                // 获取配置参数
+                const config = {
+                    Frequency: frequencySlider.value,
+                    Amplitude: amplitudeSlider.value,
+                    Spacing: spacingSlider.value,
+                    width: canvas.width,
+                    height: canvas.height
+                };
+                
+                // 获取像素数据
+                const pixData = inputCtx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // 设置输出canvas尺寸
+                outputCanvas.width = canvas.width;
+                outputCanvas.height = canvas.height;
+                clearCanvas(outputCanvas);
+                
+                // 发送数据到worker
+                worker.postMessage([config, pixData]);
+                updateStatus('正在处理图像...');
+                
+            } catch (error) {
+                updateStatus(`处理失败: ${error.message}`);
+                console.error(error);
+            }
+        }
+
+        // 绘制螺旋线条
+        function drawSpiralLines(points) {
+            if (!points || points.length < 2) {
+                updateStatus('没有生成线条数据');
+                return;
+            }
+            
+            clearCanvas(outputCanvas);
+            outputCtx.strokeStyle = '#000000';
+            outputCtx.lineWidth = 1;
+            outputCtx.lineCap = 'round';
+            
+            // 绘制线条
+            outputCtx.beginPath();
+            outputCtx.moveTo(points[0][0], points[0][1]);
+            
+            for (let i = 1; i < points.length; i++) {
+                outputCtx.lineTo(points[i][0], points[i][1]);
+            }
+            
+            outputCtx.stroke();
+            updateStatus(`成功生成螺旋线条 (${points.length}个点)`);
+        }
+
+        // 下载SVG文件
+        function downloadSVG() {
+            if (!generatedPoints || generatedPoints.length < 2) {
+                updateStatus('没有可导出的线条数据');
+                return;
+            }
+            
+            // 创建SVG内容
+            const width = outputCanvas.width;
+            const height = outputCanvas.height;
+            
+            // 构建路径数据
+            let pathData = `M ${generatedPoints[0][0].toFixed(2)} ${generatedPoints[0][1].toFixed(2)}`;
+            for (let i = 1; i < generatedPoints.length; i++) {
+                pathData += ` L ${generatedPoints[i][0].toFixed(2)} ${generatedPoints[i][1].toFixed(2)}`;
+            }
+            
+            // SVG模板
+            const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+    <path d="${pathData}" fill="none" stroke="#000000" stroke-width="1" />
+</svg>`;
+            
+            // 创建下载链接
+            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `spiral-art-${new Date().getTime()}.svg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            updateStatus('SVG文件已下载');
+        }
+
+        // 清空Canvas
+        function clearCanvas(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // 更新状态文本
+        function updateStatus(text) {
+            statusText.textContent = text;
+            console.log(text);
+        }
+
+        // 清理资源
+        window.addEventListener('beforeunload', () => {
+            if (worker) worker.terminate();
+            stopCamera();
+        });
+    </script>
+</body>
+</html>
