@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>線條畫生成器 V1.2（素描排線 / 鈔票頭像版）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; }
+        body {
+            background: #f0f0f0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f8f8;
+            border-radius: 8px;
+        }
+        .control-group {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background: #1976D2; }
+        button:disabled { background: #cccccc; cursor: not-allowed; }
+        input[type="range"] { width: 200px; }
+        .view-container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .input-view, .output-view {
+            flex: 1;
+            min-width: 400px;
+            height: 400px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        canvas, video, #image-input {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
+        }
+        #status { margin-top: 15px; color: #666; font-size: 14px; }
+        .mode-selector { margin-bottom: 15px; display: flex; gap: 10px; }
+        .mode-btn { background: #e0e0e0; color: #333; }
+        .mode-btn.active { background: #2196F3; color: white; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>線條畫生成器 V1.2 <span style="font-size:14px;color:#666;">（素描排線 / 鈔票頭像版）</span></h1>
+       
+        <div class="mode-selector">
+            <button class="mode-btn active" id="img-mode-btn">圖片模式</button>
+            <button class="mode-btn" id="cam-mode-btn">攝像頭模式</button>
+        </div>
+        <div class="controls">
+            <!-- 圖片模式控件 -->
+            <div id="img-controls">
+                <input type="file" id="image-upload" accept="image/*">
+                <button id="process-img">處理圖片</button>
+                <div class="control-group">
+                    <label>處理縮放比例:
+                        <select id="scale-ratio">
+                            <option value="0.25">25% (最快)</option>
+                            <option value="0.5" selected>50% (平衡)</option>
+                            <option value="0.75">75% (較清晰)</option>
+                            <option value="1">100% (最清晰)</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+            <!-- 攝像頭模式控件 -->
+            <div id="cam-controls" class="hidden">
+                <button id="start-cam">啟動攝像頭</button>
+                <button id="stop-cam" disabled>停止攝像頭</button>
+                <button id="capture-cam">捕獲畫面</button>
+            </div>
+            <!-- 通用參數控制 -->
+            <div class="control-group">
+                <label><input type="checkbox" id="contours" checked> 輪廓</label>
+                <label>輪廓細節: <input type="range" id="contour-detail" min="1" max="16" value="8"></label>
+            </div>
+            <div class="control-group">
+                <label><input type="checkbox" id="hatching" checked> 陰影排線</label>
+                <label>排線間距: <input type="range" id="hatch-scale" min="1" max="18" value="6"></label>
+            </div>
+            <div class="control-group">
+                <label>噪點強度: <input type="range" id="noise-scale" min="0" max="15" value="7" step="1"></label>
+                <label><input type="checkbox" id="optimize-route" checked> 優化路徑</label>
+            </div>
+        </div>
+        <div class="view-container">
+            <div class="input-view">
+                <h3>輸入源</h3>
+                <video id="video-input" class="hidden" autoplay playsinline></video>
+                <img id="image-input" class="hidden" alt="上傳的圖片">
+                <canvas id="input-canvas" class="hidden"></canvas>
+            </div>
+            <div class="output-view">
+                <h3>素描/鈔票排線輸出</h3>
+                <canvas id="output-canvas"></canvas>
+            </div>
+        </div>
+        <div id="status">就緒（已切換為素描排線 / 鈔票頭像風格：直線為主、細密雕版感）</div>
+    </div>
+
+    <!-- Web Worker 腳本（已改為排線風格） -->
+    <script id="worker-script" type="text/worker">
+        // 輔助函數 - 自動對比度
+        function autocontrast(pixData, clipPercent) {
+            const width = pixData.width;
+            const height = pixData.height;
+            const data = pixData.data;
+            const histogram = new Array(256).fill(0);
+            for (let i = 0; i < data.length; i += 4) {
+                const gray = Math.round(0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2]);
+                histogram[gray]++;
+            }
+            const totalPixels = width * height;
+            const clipPixels = totalPixels * clipPercent;
+            let cumul = 0, minGray = 0, maxGray = 255;
+            for (let i = 0; i < 256; i++) {
+                cumul += histogram[i];
+                if (cumul > clipPixels) { minGray = i; break; }
+            }
+            cumul = 0;
+            for (let i = 255; i >= 0; i--) {
+                cumul += histogram[i];
+                if (cumul > clipPixels) { maxGray = i; break; }
+            }
+            return function(x, y) {
+                if (x < 0 || x >= width || y < 0 || y >= height) return 255;
+                const idx = (y * width + x) * 4;
+                const gray = Math.round(0.299 * data[idx] + 0.587 * data[idx+1] + 0.114 * data[idx+2]);
+                const stretched = Math.round((gray - minGray) / (maxGray - minGray) * 255);
+                return Math.max(0, Math.min(255, stretched));
+            };
+        }
+
+        // 路徑排序優化
+        function sortlines(lines) {
+            if (!lines.length) return [];
+            const sorted = [lines.shift()];
+            let current = sorted[0][sorted[0].length - 1];
+            while (lines.length) {
+                let closestIdx = -1, minDist = Infinity;
+                for (let i = 0; i < lines.length; i++) {
+                    const start = lines[i][0];
+                    const dist = Math.hypot(start[0] - current[0], start[1] - current[1]);
+                    if (dist < minDist) { minDist = dist; closestIdx = i; }
+                }
+                const closest = lines.splice(closestIdx, 1)[0];
+                sorted.push(closest);
+                current = closest[closest.length - 1];
+            }
+            return sorted;
+        }
+
+        // 基礎 Perlin 噪聲
+        function perlinNoise(x, y, seed) {
+            const random = (x, y) => {
+                let n = Math.sin(x * 12.9898 + y * 78.233 + seed) * 43758.5453;
+                return n - Math.floor(n);
+            };
+            const interpolate = (a, b, t) => a + t * (b - a);
+            const x0 = Math.floor(x), x1 = x0 + 1;
+            const y0 = Math.floor(y), y1 = y0 + 1;
+            const sx = x - x0, sy = y - y0;
+            const n0 = random(x0, y0), n1 = random(x1, y0);
+            const ix0 = interpolate(n0, n1, sx);
+            const n2 = random(x0, y1), n3 = random(x1, y1);
+            const ix1 = interpolate(n2, n3, sx);
+            return interpolate(ix0, ix1, sy) * 2 - 1;
+        }
+
+        // 多層次 Fractal Perlin（輕微曲線，讓排線自然跟隨形體）
+        function fractalPerlin(x, y, seed) {
+            let n = 0, amp = 1, freq = 0.6;
+            for (let i = 0; i < 4; i++) {
+                n += perlinNoise(x * freq, y * freq, seed + i) * amp;
+                amp *= 0.5;
+                freq *= 2.1;
+            }
+            return n;
+        }
+
+        // 噪點（已調低強度，適合雕版風格）
+        function addNoise(lines, baseSc) {
+            const noiseAmp = config['Noise scale'] / 8 * (baseSc / 10 || 1);
+            for (let i = 0; i < lines.length; i++) {
+                for (let j = 0; j < lines[i].length; j++) {
+                    const px = lines[i][j][0] * 0.04;
+                    const py = lines[i][j][1] * 0.04;
+                    const nx = fractalPerlin(px, py, 123) * noiseAmp * 0.6;
+                    const ny = fractalPerlin(px + 8, py + 8, 456) * noiseAmp * 0.4;
+                    lines[i][j][0] += nx;
+                    lines[i][j][1] += ny;
+                }
+            }
+        }
+
+        // Sobel + 輪廓追蹤（維持原邏輯）
+        function SobelFilter(getPixel) {
+            const width = config.width;
+            const height = config.height;
+            const pixData = Array(width);
+            for (let x = 0; x < width; x++) {
+                pixData[x] = Array(height);
+                for (let y = 0; y < height; y++) {
+                    let px = -getPixel(x-1,y-1) + getPixel(x+1,y-1) -2*getPixel(x-1,y) +2*getPixel(x+1,y) -getPixel(x-1,y+1) +getPixel(x+1,y+1);
+                    let py = -getPixel(x-1,y-1) -2*getPixel(x,y-1) -getPixel(x+1,y-1) +getPixel(x-1,y+1) +2*getPixel(x,y+1) +getPixel(x+1,y+1);
+                    pixData[x][y] = (px*px + py*py) > 128*128 ? 255 : 0;
+                }
+            }
+            return pixData;
+        }
+        function getdotsV(pixData) { 
+            const width = config.width; const height = config.height; const dots = [];
+            for (let y=0; y<height-1; y++) {
+                const row = [];
+                for (let x=1; x<width; x++) {
+                    if (pixData[x][y] == 255) {
+                        let x0 = x; while (x<width && pixData[x][y] ==255) x++;
+                        row.push(Math.round((x+x0)/2));
+                    }
+                }
+                dots.push(row);
+            }
+            return dots;
+        }
+        function getdotsH(pixData) { 
+            const width = config.width; const height = config.height; const dots = [];
+            for (let x=0; x<width-1; x++) {
+                const row = [];
+                for (let y=1; y<height; y++) {
+                    if (pixData[x][y] == 255) {
+                        let y0 = y; while (y<height && pixData[x][y] ==255) y++;
+                        row.push(Math.round((y+y0)/2));
+                    }
+                }
+                dots.push(row);
+            }
+            return dots;
+        }
+        function connectdotsV(dots) { 
+            const height = config.height; let contours=[];
+            for (let y in dots) { y=Number(y);
+                for (let i in dots[y]) {
+                    let x = dots[y][i];
+                    if (y==0) contours.push([[x,y]]);
+                    else{
+                        let closest = -1, cdist = 10000;
+                        for ( let j in dots[y-1] ) {
+                            let x0 = dots[y-1][j]; let d = Math.abs(x-x0);
+                            if (d < cdist) { closest=x0; cdist=d; }
+                        }
+                        if (cdist > 3) contours.push([[x,y]]);
+                        else {
+                            let found=0;
+                            for (let k in contours) {
+                                let last = contours[k][contours[k].length-1];
+                                if (last[0] == closest && last[1] == y-1) {
+                                    contours[k].push([x,y]); found=1; break;
+                                }
+                            }
+                            if (found==0) contours.push([[x,y]]);
+                        }
+                    }
+                }
+                for (let c in contours){
+                    if (contours[c][contours[c].length-1][1] < y-1 && contours[c].length<4) {
+                        contours.splice(c,1);
+                    }
+                }
+            }
+            return contours;
+        }
+        function connectdotsH(dots) { 
+            const width = config.width; let contours=[];
+            for (let x in dots) { x=Number(x);
+                for (let i in dots[x]) {
+                    let y = dots[x][i];
+                    if (x==0) contours.push([[x,y]]);
+                    else{
+                        let closest = -1, cdist = 10000;
+                        for ( let j in dots[x-1] ) {
+                            let y0 = dots[x-1][j]; let d = Math.abs(y-y0);
+                            if (d < cdist) { closest=y0; cdist=d; }
+                        }
+                        if (cdist > 3) contours.push([[x,y]]);
+                        else {
+                            let found=0;
+                            for (let k in contours) {
+                                let last = contours[k][contours[k].length-1];
+                                if (last[1] == closest && last[0] == x-1) {
+                                    contours[k].push([x,y]); found=1; break;
+                                }
+                            }
+                            if (found==0) contours.push([[x,y]]);
+                        }
+                    }
+                }
+                for (let c in contours){
+                    if (contours[c][contours[c].length-1][0] < x-1 && contours[c].length<4) {
+                        contours.splice(c,1);
+                    }
+                }
+            }
+            return contours;
+        }
+        function getContours(getPixel, strokeScale) {
+            postMessage(['msg', "邊緣檢測中..."]);
+            let edges = SobelFilter(getPixel);
+            postMessage(['msg', "輪廓追蹤 (1/3)"]);
+            let contoursH = connectdotsH(getdotsH(edges));
+            postMessage(['msg', "輪廓追蹤 (2/3)"]);
+            let contoursV = connectdotsV(getdotsV(edges));
+            postMessage(['msg', "輪廓追蹤 (3/3)"]);
+            let contours = contoursH.concat(contoursV);
+            function distance(a,b) { return Math.sqrt( (a[0]-b[0])*(a[0]-b[0]) +(a[1]-b[1])*(a[1]-b[1]) ); }
+            for (let i in contours) {
+                for (let j in contours) {
+                    if (contours[i].length && contours[j].length && i !== j)
+                        if (distance( contours[j][0], contours[i][contours[i].length-1] ) < strokeScale ) {
+                            contours[i] = contours[i].concat(contours[j]);
+                            contours[j] = [];
+                        }
+                }
+            }
+            let nc = [];
+            for (let i in contours) {
+                let s = [];
+                for (let j=0; j<contours[i].length; j+= strokeScale) s.push(contours[i][j]);
+                if (s.length) nc.push(s);
+            }
+            addNoise(nc, 10);
+            return nc;
+        }
+
+        // 【核心改版】素描排線 / 鈔票頭像排線（直線為主 + 極小抖動 + 多層細密 + 輕微曲線）
+        function engravingHatch(getPixel, sc) {
+            postMessage(['msg', "生成鈔票/素描排線..."]);
+            const width = config.width;
+            const height = config.height;
+            let lines = [];
+
+            // 多層排線（更細、更直、適合人像）
+            const layers = [
+                {thresh: 155, step: sc,   jitter: 0.18},   // 主水平排線（淺）
+                {thresh: 105, step: Math.round(sc*0.85), jitter: 0.20}, // 密集水平（中）
+                {thresh:  70, step: Math.round(sc*0.75), jitter: 0.16}  // 深層排線
+            ];
+
+            for (let layer of layers) {
+                const thresh = layer.thresh;
+                const step = layer.step;
+                const jitterAmt = layer.jitter;
+
+                // 水平排線
+                for (let y = 0; y < height; y += step) {
+                    let pendown = false;
+                    for (let x = 0; x < width; x += step * 0.65) {
+                        let p = getPixel(Math.floor(x), Math.floor(y));
+                        if (p <= thresh) {
+                            if (!pendown) {
+                                lines.push([[x + (Math.random()-0.5)*step*0.12, y + (Math.random()-0.5)*step*0.12]]);
+                                pendown = true;
+                            } else {
+                                let last = lines[lines.length-1];
+                                let jx = (Math.random()-0.5) * step * jitterAmt;
+                                let jy = (Math.random()-0.5) * step * jitterAmt * 0.6;
+                                let newx = x + jx;
+                                let newy = y + jy;
+                                last.push([newx, newy]);
+                                if (Math.random() < 0.04) pendown = false;  // 極少斷筆 → 更像雕版長線
+                            }
+                        } else {
+                            pendown = false;
+                        }
+                    }
+                }
+
+                // 密集水平排線（第二層）
+                for (let y = Math.round(step/2); y < height; y += step) {
+                    let pendown = false;
+                    for (let x = 0; x < width; x += step * 0.65) {
+                        let p = getPixel(Math.floor(x), Math.floor(y));
+                        if (p <= thresh - 35) {
+                            if (!pendown) {
+                                lines.push([[x + (Math.random()-0.5)*step*0.12, y + (Math.random()-0.5)*step*0.12]]);
+                                pendown = true;
+                            } else {
+                                let last = lines[lines.length-1];
+                                let jx = (Math.random()-0.5) * step * jitterAmt;
+                                let jy = (Math.random()-0.5) * step * jitterAmt * 0.6;
+                                let newx = x + jx;
+                                let newy = y + jy;
+                                last.push([newx, newy]);
+                                if (Math.random() < 0.04) pendown = false;
+                            }
+                        } else {
+                            pendown = false;
+                        }
+                    }
+                }
+            }
+
+            // 斜線排線（45° 交叉，鈔票經典風格）
+            const diagStep = Math.round(sc * 0.8);
+            for (let sy = 0; sy < height; sy += diagStep) {
+                let pendown = false;
+                for (let x = 0, y = sy; x < width && y > 0; x += diagStep*0.65, y -= diagStep*0.65) {
+                    let p = getPixel(Math.floor(x), Math.floor(y));
+                    if (p <= 58) {
+                        if (!pendown) {
+                            lines.push([[x + (Math.random()-0.5)*diagStep*0.12, y + (Math.random()-0.5)*diagStep*0.12]]);
+                            pendown = true;
+                        } else {
+                            let last = lines[lines.length-1];
+                            let jx = (Math.random()-0.5) * diagStep * 0.18;
+                            let jy = (Math.random()-0.5) * diagStep * 0.18;
+                            let newx = x + jx;
+                            let newy = y + jy;
+                            last.push([newx, newy]);
+                            if (Math.random() < 0.035) pendown = false;
+                        }
+                    } else pendown = false;
+                }
+            }
+
+            addNoise(lines, sc);
+            return lines;
+        }
+
+        var config, pixData;
+        onmessage = function(e) {
+            [config, pixData] = e.data;
+            if (!config.Contours && !config.Hatching) return;
+
+            const width = config.width;
+            const height = config.height;
+            postMessage(['msg', "處理中..."]);
+            const getPixel = autocontrast(pixData, 0.1);
+
+            let output = [];
+            if (config.Contours)
+                output = output.concat(getContours(getPixel, config['Contour detail']));
+
+            if (config.Hatching)
+                output = output.concat(engravingHatch(getPixel, config['Hatch scale']));
+
+            if (config['Optimize route']) {
+                postMessage(['msg', "優化路徑順序..."]);
+                output = sortlines(output);
+            }
+
+            // 還原原始尺寸
+            const scaleRatio = 1 / config.scaleRatio;
+            const scaledOutput = output.map(line =>
+                line.map(point => [point[0] * scaleRatio, point[1] * scaleRatio])
+            );
+
+            postMessage(['result', scaledOutput]);
+            postMessage(['msg', "完成！"]);
+        };
+    </script>
+
+    <!-- 主腳本 -->
+    <script>
+        // DOM 元素
+        const imgModeBtn = document.getElementById('img-mode-btn');
+        const camModeBtn = document.getElementById('cam-mode-btn');
+        const imgControls = document.getElementById('img-controls');
+        const camControls = document.getElementById('cam-controls');
+        const imageUpload = document.getElementById('image-upload');
+        const processImgBtn = document.getElementById('process-img');
+        const startCamBtn = document.getElementById('start-cam');
+        const stopCamBtn = document.getElementById('stop-cam');
+        const captureCamBtn = document.getElementById('capture-cam');
+        const videoInput = document.getElementById('video-input');
+        const imageInput = document.getElementById('image-input');
+        const inputCanvas = document.getElementById('input-canvas');
+        const outputCanvas = document.getElementById('output-canvas');
+        const statusText = document.getElementById('status');
+        const scaleRatioSelect = document.getElementById('scale-ratio');
+
+        // 參數控件
+        const contoursCheckbox = document.getElementById('contours');
+        const contourDetailSlider = document.getElementById('contour-detail');
+        const hatchingCheckbox = document.getElementById('hatching');
+        const hatchScaleSlider = document.getElementById('hatch-scale');
+        const noiseScaleSlider = document.getElementById('noise-scale');
+        const optimizeRouteCheckbox = document.getElementById('optimize-route');
+
+        // Canvas 上下文
+        const inputCtx = inputCanvas.getContext('2d');
+        const outputCtx = outputCanvas.getContext('2d');
+
+        let currentScaleRatio = 1;
+        let worker;
+
+        function initWorker() {
+            const workerScript = document.getElementById('worker-script').textContent;
+            const blob = new Blob([workerScript], { type: 'application/javascript' });
+            worker = new Worker(URL.createObjectURL(blob));
+            worker.onmessage = function(e) {
+                if (e.data[0] === 'msg') updateStatus(e.data[1]);
+                else if (e.data[0] === 'result') drawLines(e.data[1]);
+            };
+            worker.onerror = function(error) {
+                updateStatus(`錯誤: ${error.message}`);
+                console.error(error);
+            };
+        }
+
+        window.addEventListener('load', () => {
+            initWorker();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            imgModeBtn.addEventListener('click', () => switchMode('img'));
+            camModeBtn.addEventListener('click', () => switchMode('cam'));
+            imageUpload.addEventListener('change', handleImageUpload);
+            processImgBtn.addEventListener('click', processImage);
+            startCamBtn.addEventListener('click', startCamera);
+            stopCamBtn.addEventListener('click', stopCamera);
+            captureCamBtn.addEventListener('click', captureCameraFrame);
+        }
+
+        function switchMode(mode) {
+            if (mode === 'img') {
+                imgModeBtn.classList.add('active'); camModeBtn.classList.remove('active');
+                imgControls.classList.remove('hidden'); camControls.classList.add('hidden');
+                stopCamera(); hideAllInputs();
+            } else {
+                imgModeBtn.classList.remove('active'); camModeBtn.classList.add('active');
+                imgControls.classList.add('hidden'); camControls.classList.remove('hidden');
+                hideAllInputs();
+            }
+            clearCanvas(outputCanvas);
+            updateStatus('就緒');
+        }
+
+        function hideAllInputs() {
+            videoInput.classList.add('hidden');
+            imageInput.classList.add('hidden');
+            inputCanvas.classList.add('hidden');
+        }
+
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                imageInput.src = event.target.result;
+                imageInput.onload = () => {
+                    hideAllInputs();
+                    imageInput.classList.remove('hidden');
+                    updateStatus('圖片已上傳，點擊「處理圖片」開始');
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function processImage() {
+            if (!imageInput.src) { updateStatus('請先上傳圖片'); return; }
+            const scaleRatio = parseFloat(scaleRatioSelect.value);
+            currentScaleRatio = scaleRatio;
+            const originalWidth = imageInput.naturalWidth;
+            const originalHeight = imageInput.naturalHeight;
+            const scaledWidth = Math.floor(originalWidth * scaleRatio);
+            const scaledHeight = Math.floor(originalHeight * scaleRatio);
+            inputCanvas.width = scaledWidth; inputCanvas.height = scaledHeight;
+            inputCtx.drawImage(imageInput, 0, 0, originalWidth, originalHeight, 0, 0, scaledWidth, scaledHeight);
+            processCanvasData(inputCanvas, scaleRatio, originalWidth, originalHeight);
+        }
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                videoInput.srcObject = stream;
+                hideAllInputs(); videoInput.classList.remove('hidden');
+                startCamBtn.disabled = true; stopCamBtn.disabled = false; captureCamBtn.disabled = false;
+                updateStatus('攝像頭已啟動');
+            } catch (error) { updateStatus(`攝像頭失敗: ${error.message}`); }
+        }
+
+        function stopCamera() {
+            if (videoInput.srcObject) {
+                videoInput.srcObject.getTracks().forEach(track => track.stop());
+                videoInput.srcObject = null;
+            }
+            videoInput.classList.add('hidden');
+            startCamBtn.disabled = false; stopCamBtn.disabled = true; captureCamBtn.disabled = true;
+        }
+
+        function captureCameraFrame() {
+            const scaleRatio = parseFloat(scaleRatioSelect.value);
+            currentScaleRatio = scaleRatio;
+            const originalWidth = videoInput.videoWidth || 640;
+            const originalHeight = videoInput.videoHeight || 480;
+            const scaledWidth = Math.floor(originalWidth * scaleRatio);
+            const scaledHeight = Math.floor(originalHeight * scaleRatio);
+            inputCanvas.width = scaledWidth; inputCanvas.height = scaledHeight;
+            inputCtx.drawImage(videoInput, 0, 0, originalWidth, originalHeight, 0, 0, scaledWidth, scaledHeight);
+            processCanvasData(inputCanvas, scaleRatio, originalWidth, originalHeight);
+        }
+
+        function processCanvasData(canvas, scaleRatio, originalWidth, originalHeight) {
+            try {
+                const config = {
+                    Contours: contoursCheckbox.checked,
+                    'Contour detail': parseInt(contourDetailSlider.value),
+                    Hatching: hatchingCheckbox.checked,
+                    'Hatch scale': parseInt(hatchScaleSlider.value),
+                    'Noise scale': parseFloat(noiseScaleSlider.value),
+                    'Optimize route': optimizeRouteCheckbox.checked,
+                    width: canvas.width,
+                    height: canvas.height,
+                    scaleRatio: scaleRatio
+                };
+                const pixData = inputCtx.getImageData(0, 0, canvas.width, canvas.height);
+                outputCanvas.width = originalWidth;
+                outputCanvas.height = originalHeight;
+                clearCanvas(outputCanvas);
+                worker.postMessage([config, pixData]);
+                updateStatus('開始生成素描/鈔票排線...');
+            } catch (error) {
+                updateStatus(`處理失敗: ${error.message}`);
+            }
+        }
+
+        // 線條粗細依亮度變化（暗處更粗，雕版質感）
+        function drawLines(lines) {
+            clearCanvas(outputCanvas);
+            outputCtx.strokeStyle = '#111111';
+            outputCtx.lineCap = 'round';
+            outputCtx.lineJoin = 'round';
+
+            lines.forEach(line => {
+                if (line.length < 2) return;
+                for (let i = 1; i < line.length; i++) {
+                    const p1 = line[i-1];
+                    const p2 = line[i];
+                    const mx = (p1[0] + p2[0]) / 2;
+                    const my = (p1[1] + p2[1]) / 2;
+
+                    const sampleX = Math.floor(mx * currentScaleRatio);
+                    const sampleY = Math.floor(my * currentScaleRatio);
+
+                    let thickness = 0.9;
+                    if (sampleX >= 0 && sampleX < inputCanvas.width && sampleY >= 0 && sampleY < inputCanvas.height) {
+                        const idata = inputCtx.getImageData(sampleX, sampleY, 1, 1).data;
+                        const gray = 0.299 * idata[0] + 0.587 * idata[1] + 0.114 * idata[2];
+                        const darkness = (255 - gray) / 255;
+                        thickness = 0.65 + darkness * 2.8;
+                    }
+
+                    outputCtx.beginPath();
+                    outputCtx.moveTo(p1[0], p1[1]);
+                    outputCtx.lineTo(p2[0], p2[1]);
+                    outputCtx.lineWidth = thickness;
+                    outputCtx.stroke();
+                }
+            });
+
+            updateStatus('素描/鈔票排線生成完成！（更像雕版人像陰影）');
+        }
+
+        function clearCanvas(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function updateStatus(text) {
+            statusText.textContent = text;
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (worker) worker.terminate();
+            stopCamera();
+        });
+    </script>
+</body>
+</html>
