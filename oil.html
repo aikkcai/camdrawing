@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>油畫生成器（HTML + CSS + JS）</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        h1 {
+            color: #ffd700;
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+            margin-bottom: 10px;
+        }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            max-width: 1200px;
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .canvas-container {
+            background: #0f0f1f;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            position: relative;
+        }
+        
+        canvas {
+            max-width: 100%;
+            border: 3px solid #ffd700;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+        }
+        
+        .controls {
+            background: #16213e;
+            padding: 25px;
+            border-radius: 15px;
+            width: 320px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #aaa;
+            font-weight: 500;
+        }
+        
+        input[type="range"] {
+            accent-color: #ffd700;
+            width: 100%;
+        }
+        
+        .value {
+            font-size: 13px;
+            color: #ffd700;
+            text-align: right;
+            margin-top: 5px;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 12px;
+            background: #ffd700;
+            color: #1a1a2e;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 15px;
+        }
+        
+        button:hover {
+            background: #ffeb3b;
+            transform: translateY(-2px);
+        }
+        
+        button#resetBtn {
+            background: #555;
+            color: #eee;
+        }
+        
+        button#downloadBtn {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .upload-area {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .upload-label {
+            display: inline-block;
+            padding: 12px 25px;
+            background: #ffd700;
+            color: #1a1a2e;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: 0.3s;
+        }
+        
+        .upload-label:hover {
+            background: #ffeb3b;
+        }
+        
+        .info {
+            font-size: 12px;
+            color: #777;
+            text-align: center;
+            max-width: 320px;
+            margin-top: 10px;
+        }
+        
+        .note {
+            font-size: 13px;
+            color: #ff9800;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🖌️ 油畫生成器</h1>
+    <p style="color:#aaa; margin-bottom:30px;">上傳圖片 → 即時變成油畫效果（純 HTML + CSS + JS，無後端）</p>
+    
+    <div class="container">
+        <!-- 畫布區域 -->
+        <div class="canvas-container">
+            <canvas id="canvas" width="800" height="600"></canvas>
+            <div class="info">
+                圖片會自動縮放至最大 800px，保持原比例
+            </div>
+        </div>
+        
+        <!-- 控制面板 -->
+        <div class="controls">
+            <div class="upload-area">
+                <label for="upload" class="upload-label">📸 上傳圖片</label>
+                <input type="file" id="upload" accept="image/*">
+            </div>
+            
+            <div class="control-group">
+                <label>筆觸大小（Brush Size） <span id="brushVal">5</span></label>
+                <input type="range" id="brushSize" min="1" max="20" value="5" step="1">
+            </div>
+            
+            <div class="control-group">
+                <label>筆觸方向（Direction） <span id="dirVal">0°</span>（目前基礎版未使用，可自行擴展）</label>
+                <input type="range" id="direction" min="0" max="180" value="0" step="1">
+            </div>
+            
+            <div class="control-group">
+                <label>色彩冷暖（Color Temperature） <span id="warmVal">0</span></label>
+                <input type="range" id="warmth" min="-50" max="50" value="0" step="1">
+            </div>
+            
+            <div class="control-group">
+                <label>明暗對比度（Contrast） <span id="contrastVal">100</span></label>
+                <input type="range" id="contrast" min="0" max="200" value="100" step="1">
+            </div>
+            
+            <div class="control-group">
+                <label>亮度（Brightness） <span id="brightVal">0</span></label>
+                <input type="range" id="brightness" min="-100" max="100" value="0" step="1">
+            </div>
+            
+            <div class="buttons">
+                <button id="applyBtn">🎨 生成油畫效果</button>
+                <button id="resetBtn">🔄 重置為原圖</button>
+            </div>
+            
+            <button id="downloadBtn">💾 下載油畫圖片</button>
+            
+            <div class="note">
+                ※ 筆觸越大越慢（建議先試 3~8）<br>
+                ※ 筆觸方向目前為預留，可未來用 WebGL 擴展成定向筆刷
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        let originalImageData = null;
+        let currentWidth = 800;
+        let currentHeight = 600;
+        
+        // 更新滑桿數值顯示
+        function updateSliderValues() {
+            document.getElementById('brushVal').textContent = document.getElementById('brushSize').value;
+            document.getElementById('dirVal').textContent = document.getElementById('direction').value + '°';
+            document.getElementById('warmVal').textContent = document.getElementById('warmth').value;
+            document.getElementById('contrastVal').textContent = document.getElementById('contrast').value;
+            document.getElementById('brightVal').textContent = document.getElementById('brightness').value;
+        }
+        
+        // 油畫濾鏡核心（經典 Intensity Histogram 方法）
+        function applyOilPaint(imageData, radius) {
+            const width = imageData.width;
+            const height = imageData.height;
