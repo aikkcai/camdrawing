@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>油畫生成器（HTML + CSS + JS）</title>
+    <title>油畫生成器（即時下拉選單版）</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
         
@@ -53,11 +53,11 @@
             background: #16213e;
             padding: 25px;
             border-radius: 15px;
-            width: 320px;
+            width: 340px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 22px;
         }
         
         .control-group {
@@ -66,28 +66,33 @@
         }
         
         label {
-            font-size: 14px;
+            font-size: 15px;
             margin-bottom: 8px;
-            color: #aaa;
+            color: #ccc;
             font-weight: 500;
         }
         
-        input[type="range"] {
+        select {
+            padding: 10px 12px;
+            font-size: 15px;
+            background: #1e2a44;
+            color: #eee;
+            border: 1px solid #444;
+            border-radius: 8px;
             accent-color: #ffd700;
-            width: 100%;
+            cursor: pointer;
         }
         
-        .value {
-            font-size: 13px;
-            color: #ffd700;
-            text-align: right;
-            margin-top: 5px;
+        select:focus {
+            outline: none;
+            border-color: #ffd700;
+            box-shadow: 0 0 0 3px rgba(255,215,0,0.2);
         }
         
         .buttons {
             display: flex;
-            gap: 10px;
-            margin-top: 15px;
+            gap: 12px;
+            margin-top: 10px;
         }
         
         button {
@@ -119,7 +124,7 @@
         }
         
         .upload-area {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             text-align: center;
         }
         
@@ -129,7 +134,7 @@
         
         .upload-label {
             display: inline-block;
-            padding: 12px 25px;
+            padding: 12px 28px;
             background: #ffd700;
             color: #1a1a2e;
             border-radius: 8px;
@@ -142,76 +147,87 @@
             background: #ffeb3b;
         }
         
-        .info {
-            font-size: 12px;
-            color: #777;
-            text-align: center;
-            max-width: 320px;
-            margin-top: 10px;
-        }
-        
         .note {
             font-size: 13px;
             color: #ff9800;
             margin-top: 8px;
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
-    <h1>🖌️ 油畫生成器</h1>
-    <p style="color:#aaa; margin-bottom:30px;">上傳圖片 → 即時變成油畫效果（純 HTML + CSS + JS，無後端）</p>
+    <h1>🖌️ 油畫生成器（即時版）</h1>
+    <p style="color:#aaa; margin-bottom:30px;">選擇參數 → 畫面自動更新（純前端，無需按鈕）</p>
     
     <div class="container">
         <!-- 畫布區域 -->
         <div class="canvas-container">
             <canvas id="canvas" width="800" height="600"></canvas>
-            <div class="info">
-                圖片會自動縮放至最大 800px，保持原比例
+            <div style="font-size:13px; color:#777; text-align:center; margin-top:12px;">
+                圖片自動縮放至最大 800px × 600px
             </div>
         </div>
         
         <!-- 控制面板 -->
         <div class="controls">
             <div class="upload-area">
-                <label for="upload" class="upload-label">📸 上傳圖片</label>
+                <label for="upload" class="upload-label">📸 上傳自己的圖片</label>
                 <input type="file" id="upload" accept="image/*">
             </div>
             
             <div class="control-group">
-                <label>筆觸大小（Brush Size） <span id="brushVal">5</span></label>
-                <input type="range" id="brushSize" min="1" max="20" value="5" step="1">
+                <label>筆觸大小（Brush Size）</label>
+                <select id="brushSize">
+                    <option value="2">極細（2）</option>
+                    <option value="3">很細（3）</option>
+                    <option value="5" selected>細膩（5）</option>
+                    <option value="8">中等（8）</option>
+                    <option value="12">粗獷（12）</option>
+                    <option value="18">厚重（18）</option>
+                </select>
             </div>
             
             <div class="control-group">
-                <label>筆觸方向（Direction） <span id="dirVal">0°</span>（目前基礎版未使用，可自行擴展）</label>
-                <input type="range" id="direction" min="0" max="180" value="0" step="1">
+                <label>色彩冷暖（Color Temperature）</label>
+                <select id="warmth">
+                    <option value="-40">非常冷（藍調強）</option>
+                    <option value="-20">偏冷</option>
+                    <option value="0" selected>原圖中性</option>
+                    <option value="20">偏暖</option>
+                    <option value="40">非常暖（橘紅強）</option>
+                </select>
             </div>
             
             <div class="control-group">
-                <label>色彩冷暖（Color Temperature） <span id="warmVal">0</span></label>
-                <input type="range" id="warmth" min="-50" max="50" value="0" step="1">
+                <label>明暗對比度（Contrast）</label>
+                <select id="contrast">
+                    <option value="60">低對比（柔和）</option>
+                    <option value="80">稍低</option>
+                    <option value="100" selected>標準</option>
+                    <option value="130">高對比</option>
+                    <option value="160">極高對比（戲劇化）</option>
+                </select>
             </div>
             
             <div class="control-group">
-                <label>明暗對比度（Contrast） <span id="contrastVal">100</span></label>
-                <input type="range" id="contrast" min="0" max="200" value="100" step="1">
-            </div>
-            
-            <div class="control-group">
-                <label>亮度（Brightness） <span id="brightVal">0</span></label>
-                <input type="range" id="brightness" min="-100" max="100" value="0" step="1">
+                <label>整體亮度（Brightness）</label>
+                <select id="brightness">
+                    <option value="-60">很暗</option>
+                    <option value="-30">偏暗</option>
+                    <option value="0" selected>正常</option>
+                    <option value="30">偏亮</option>
+                    <option value="60">很亮</option>
+                </select>
             </div>
             
             <div class="buttons">
-                <button id="applyBtn">🎨 生成油畫效果</button>
                 <button id="resetBtn">🔄 重置為原圖</button>
+                <button id="downloadBtn">💾 下載結果</button>
             </div>
             
-            <button id="downloadBtn">💾 下載油畫圖片</button>
-            
             <div class="note">
-                ※ 筆觸越大越慢（建議先試 3~8）<br>
-                ※ 筆觸方向目前為預留，可未來用 WebGL 擴展成定向筆刷
+                ※ 筆觸越大，計算時間越長（建議先用 3~8）<br>
+                ※ 方向目前未實作（可未來用 WebGL 加強）
             </div>
         </div>
     </div>
@@ -224,16 +240,159 @@
         let currentWidth = 800;
         let currentHeight = 600;
         
-        // 更新滑桿數值顯示
-        function updateSliderValues() {
-            document.getElementById('brushVal').textContent = document.getElementById('brushSize').value;
-            document.getElementById('dirVal').textContent = document.getElementById('direction').value + '°';
-            document.getElementById('warmVal').textContent = document.getElementById('warmth').value;
-            document.getElementById('contrastVal').textContent = document.getElementById('contrast').value;
-            document.getElementById('brightVal').textContent = document.getElementById('brightness').value;
-        }
-        
-        // 油畫濾鏡核心（經典 Intensity Histogram 方法）
+        // 油畫濾鏡核心
         function applyOilPaint(imageData, radius) {
             const width = imageData.width;
             const height = imageData.height;
+            const pixels = imageData.data;
+            const output = new Uint8ClampedArray(pixels.length);
+            const r = Math.floor(radius);
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const count = new Array(256).fill(0);
+                    const sumR = new Array(256).fill(0);
+                    const sumG = new Array(256).fill(0);
+                    const sumB = new Array(256).fill(0);
+                    
+                    const minX = Math.max(0, x - r);
+                    const maxX = Math.min(width - 1, x + r);
+                    const minY = Math.max(0, y - r);
+                    const maxY = Math.min(height - 1, y + r);
+                    
+                    for (let ny = minY; ny <= maxY; ny++) {
+                        for (let nx = minX; nx <= maxX; nx++) {
+                            const i = (ny * width + nx) * 4;
+                            const intensity = Math.floor((pixels[i] + pixels[i+1] + pixels[i+2]) / 3);
+                            count[intensity]++;
+                            sumR[intensity] += pixels[i];
+                            sumG[intensity] += pixels[i+1];
+                            sumB[intensity] += pixels[i+2];
+                        }
+                    }
+                    
+                    let maxCount = 0;
+                    let best = 0;
+                    for (let i = 0; i < 256; i++) {
+                        if (count[i] > maxCount) {
+                            maxCount = count[i];
+                            best = i;
+                        }
+                    }
+                    
+                    const idx = (y * width + x) * 4;
+                    output[idx]   = maxCount ? Math.floor(sumR[best] / maxCount) : 128;
+                    output[idx+1] = maxCount ? Math.floor(sumG[best] / maxCount) : 128;
+                    output[idx+2] = maxCount ? Math.floor(sumB[best] / maxCount) : 128;
+                    output[idx+3] = 255;
+                }
+            }
+            return output;
+        }
+        
+        // 後製調整
+        function applyAdjustments(data, warmth, contrast, brightness) {
+            const output = new Uint8ClampedArray(data.length);
+            const cf = contrast / 100;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                let r = data[i];
+                let g = data[i + 1];
+                let b = data[i + 2];
+                
+                // 對比
+                r = ((r/255 - 0.5) * cf + 0.5) * 255;
+                g = ((g/255 - 0.5) * cf + 0.5) * 255;
+                b = ((b/255 - 0.5) * cf + 0.5) * 255;
+                
+                // 亮度
+                r += brightness;
+                g += brightness;
+                b += brightness;
+                
+                // 冷暖
+                const warmOffset = warmth * 0.8;
+                r += warmOffset * 1.2;
+                b -= warmOffset * 1.1;
+                
+                output[i]   = Math.max(0, Math.min(255, Math.round(r)));
+                output[i+1] = Math.max(0, Math.min(255, Math.round(g)));
+                output[i+2] = Math.max(0, Math.min(255, Math.round(b)));
+                output[i+3] = 255;
+            }
+            return output;
+        }
+        
+        // 執行完整效果
+        function renderEffect() {
+            if (!originalImageData) return;
+            
+            const radius    = parseFloat(document.getElementById('brushSize').value);
+            const warmth    = parseFloat(document.getElementById('warmth').value);
+            const contrast  = parseFloat(document.getElementById('contrast').value);
+            const brightness = parseFloat(document.getElementById('brightness').value);
+            
+            const oil = applyOilPaint(originalImageData, radius);
+            const final = applyAdjustments(oil, warmth, contrast, brightness);
+            
+            const imgData = ctx.createImageData(currentWidth, currentHeight);
+            imgData.data.set(final);
+            ctx.putImageData(imgData, 0, 0);
+        }
+        
+        // 重置
+        function resetToOriginal() {
+            if (!originalImageData) return;
+            const resetData = ctx.createImageData(currentWidth, currentHeight);
+            resetData.data.set(originalImageData.data);
+            ctx.putImageData(resetData, 0, 0);
+        }
+        
+        // 下載
+        function download() {
+            if (!originalImageData) return alert("請先上傳圖片");
+            const a = document.createElement('a');
+            a.download = '油畫效果.png';
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+        }
+        
+        // 上傳圖片
+        document.getElementById('upload').addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = ev => {
+                const img = new Image();
+                img.onload = () => {
+                    let scale = Math.min(800/img.width, 600/img.height, 1);
+                    currentWidth  = Math.floor(img.width  * scale);
+                    currentHeight = Math.floor(img.height * scale);
+                    
+                    canvas.width = currentWidth;
+                    canvas.height = currentHeight;
+                    
+                    ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
+                    originalImageData = ctx.getImageData(0, 0, currentWidth, currentHeight);
+                    
+                    // 第一次自動套用
+                    renderEffect();
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        // 所有選單變更 → 即時更新
+        const selects = ['brushSize', 'warmth', 'contrast', 'brightness'];
+        selects.forEach(id => {
+            document.getElementById(id).addEventListener('change', renderEffect);
+        });
+        
+        // 按鈕
+        document.getElementById('resetBtn').addEventListener('click', resetToOriginal);
+        document.getElementById('downloadBtn').addEventListener('click', download);
+    </script>
+</body>
+</html>
