@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>图片Canvas编辑器</title>
+    <title>圖片 Canvas 編輯器</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <script>
@@ -16,765 +15,314 @@
                         secondary: '#10B981',
                         accent: '#F59E0B',
                         danger: '#EF4444',
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
-                    },
+                    }
                 }
             }
         }
     </script>
     <style type="text/tailwindcss">
         @layer utilities {
-            .content-auto {
-                content-visibility: auto;
-            }
             .canvas-container {
                 @apply relative w-full h-[75vh] bg-gray-100 rounded-lg overflow-hidden shadow-lg border border-gray-200;
             }
             .control-panel {
-                @apply bg-white p-4 rounded-lg shadow-md flex flex-wrap gap-4 items-center justify-between mb-4 transition-all duration-300;
+                @apply bg-white p-4 rounded-lg shadow-md flex flex-wrap gap-4 items-center justify-between mb-4;
             }
             .btn {
                 @apply px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center gap-2;
             }
-            .btn-primary {
-                @apply bg-primary text-white hover:bg-primary/90 active:bg-primary/80;
-            }
-            .btn-secondary {
-                @apply bg-secondary text-white hover:bg-secondary/90 active:bg-secondary/80;
-            }
-            .btn-accent {
-                @apply bg-accent text-white hover:bg-accent/90 active:bg-accent/80;
-            }
-            .btn-danger {
-                @apply bg-danger text-white hover:bg-danger/90 active:bg-danger/80;
-            }
-            .btn-outline {
-                @apply border border-gray-300 hover:bg-gray-100 active:bg-gray-200;
-            }
-            .slider-container {
-                @apply flex items-center gap-2 w-full max-w-md;
-            }
-            .slider {
-                @apply w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer;
-            }
-            .slider::-webkit-slider-thumb {
-                @apply appearance-none w-5 h-5 rounded-full bg-primary cursor-pointer;
-            }
-            .fullscreen {
-                @apply fixed inset-0 z-50 bg-black;
-            }
-            .lock-icon {
-                @apply transition-transform duration-300;
-            }
-            .locked .lock-icon {
-                @apply rotate-180;
-            }
-            .crosshair {
-                @apply absolute pointer-events-none z-10;
-            }
-            .crosshair-horizontal {
-                @apply h-[1px] w-full bg-red-500 absolute top-1/2 transform -translate-y-1/2;
-            }
-            .crosshair-vertical {
-                @apply w-[1px] h-full bg-red-500 absolute left-1/2 transform -translate-x-1/2;
-            }
-            .floating-lock-btn {
-                @apply fixed top-4 right-4 z-50 opacity-0 pointer-events-none transition-all duration-300;
-            }
-            .show-lock-btn {
-                @apply opacity-100 pointer-events-auto;
-            }
-			
-			  .content-auto {
-                content-visibility: auto;
-            }
-            .crosshair-line {
-                position: fixed;
-                pointer-events: none;
-                z-index: 50;
-                opacity: 0.5;
-                transition: opacity 0.2s ease;
-            }
-            .crosshair-horizontal {
-                height: 1px;
-                width: 100%;
-            }
-            .crosshair-vertical {
-                width: 1px;
-                height: 100%;
-            }
-            .fade-out {
-                opacity: 0;
-            }
-			
+            .btn-primary { @apply bg-primary text-white hover:bg-primary/90; }
+            .btn-secondary { @apply bg-secondary text-white hover:bg-secondary/90; }
+            .btn-accent { @apply bg-accent text-white hover:bg-accent/90; }
+            .btn-danger { @apply bg-danger text-white hover:bg-danger/90; }
+            .btn-outline { @apply border border-gray-300 hover:bg-gray-100; }
         }
     </style>
 </head>
-<body class="bg-gray-50 font-sans">
+<body class="bg-gray-50 font-sans" oncontextmenu="return false;">
 
-
-    <!-- 十字线元素 -->
-    <div id="horizontal-line" class="crosshair-line crosshair-horizontal bg-red-500"></div>
-    <div id="vertical-line" class="crosshair-line crosshair-vertical bg-red-500"></div>
-
+    <!-- 全局禁止右鍵 -->
     <script>
-        // 获取十字线元素
-        const horizontalLine = document.getElementById('horizontal-line');
-        const verticalLine = document.getElementById('vertical-line');
-        
-        // 颜色选项按钮
-        const colorOptions = document.querySelectorAll('.color-option');
-        
-        // 淡出计时器
-        let fadeTimer;
-        
-        // 鼠标/触摸移动处理函数
-        function handleMovement(e) {
-            // 清除之前的淡出计时器
-         //   clearTimeout(fadeTimer);
-            
-            // 显示十字线
-            horizontalLine.classList.remove('fade-out');
-            verticalLine.classList.remove('fade-out');
-            
-            // 获取鼠标/触摸位置
-            let clientX, clientY;
-            
-            if (e.type === 'mousemove') {
-                clientX = e.clientX;
-                clientY = e.clientY;
-            } else if (e.type === 'touchmove') {
-                // 防止页面滚动
-                e.preventDefault();
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            }
-            
-            // 移动十字线到当前位置
-            horizontalLine.style.top = `${clientY}px`;
-            verticalLine.style.left = `${clientX}px`;
-            
-            // 设置新的淡出计时器
-         //   fadeTimer = setTimeout(() => {
-        //        horizontalLine.classList.add('fade-out');
-        //        verticalLine.classList.add('fade-out');
-        //    }, 2000); // 2秒后淡出
-        }
-        
-        // 为鼠标和触摸事件添加监听器
-        document.addEventListener('mousemove', handleMovement);
-        document.addEventListener('touchmove', handleMovement, { passive: false });
-        
-        // 颜色选择功能
-        colorOptions.forEach(option => {
-            option.addEventListener('click', () => {
-                const color = option.getAttribute('data-color');
-                
-                // 更新十字线颜色
-                horizontalLine.style.backgroundColor = color;
-                verticalLine.style.backgroundColor = color;
-                
-                // 更新选中状态
-                colorOptions.forEach(opt => opt.classList.remove('border-black'));
-                option.classList.add('border-black');
-            });
-        });
-        
-        // 默认选中第一个颜色
-        colorOptions[0].classList.add('border-black');
+        document.addEventListener('contextmenu', e => e.preventDefault());
     </script>
 
     <div class="container mx-auto px-4 py-8 max-w-6xl">
-
-
         <main>
             <div id="controlPanel" class="control-panel">
                 <div class="flex flex-wrap gap-2">
-                    <label for="imageUpload" class="btn btn-primary">
-                        <i class="fa fa-upload"></i> 上传图片
+                    <label for="imageUpload" class="btn btn-primary cursor-pointer">
+                        <i class="fa fa-upload"></i> 上傳圖片
                     </label>
                     <input type="file" id="imageUpload" accept="image/*" class="hidden">
-                    
+
                     <button id="resetBtn" class="btn btn-outline">
                         <i class="fa fa-refresh"></i> 重置
                     </button>
-                    
-                    <button id="lockBtn" class="btn btn-accent locked">
-                        <i class="fa fa-lock lock-icon"></i> <span>解锁</span>
+
+                    <button id="oilBtn" class="btn btn-secondary">
+                        <i class="fa fa-paint-brush"></i> 油畫效果
+                    </button>
+
+                    <button id="sketchBtn" class="btn btn-secondary">
+                        <i class="fa fa-pencil"></i> 線條效果
+                    </button>
+
+                    <button id="lockBtn" class="btn btn-accent">
+                        <i class="fa fa-lock"></i> <span>鎖定</span>
                     </button>
                 </div>
-                
-                <div class="slider-container">
-                    <button id="disSlider" class="btn btn-outline">
-					<i class="fa fa-search-minus text-gray-500"></i>
-					 </button>
-                    <input type="range" id="zoomSlider" min="0.1" max="20" step="0.05" value="1" class="slider">
-       
-					<button id="inSlider" class="btn btn-outline">
-					<i class="fa fa-search-plus text-gray-500"></i>
-					 </button>
-                    <span id="zoomValue" class="text-sm font-medium text-gray-700 min-w-[9rem] text-center">100%</span>
+
+                <div class="flex items-center gap-4">
+                    <div class="slider-container flex items-center gap-2">
+                        <button id="disSlider" class="btn btn-outline">
+                            <i class="fa fa-search-minus"></i>
+                        </button>
+                        <input type="range" id="zoomSlider" min="0.1" max="20" step="0.05" value="1" class="slider w-48">
+                        <button id="inSlider" class="btn btn-outline">
+                            <i class="fa fa-search-plus"></i>
+                        </button>
+                        <span id="zoomValue" class="text-sm font-medium text-gray-700 min-w-[5rem]">100%</span>
+                    </div>
                 </div>
             </div>
 
             <div id="canvasContainer" class="canvas-container">
-                <canvas id="imageCanvas" class="absolute top-0 left-0"></canvas>
-                <div id="crosshairContainer" class="hidden absolute inset-0 z-20 pointer-events-none"></div>
-                <div class="absolute inset-0 flex items-center justify-center text-gray-400 text-lg" id="dropZone">
+                <canvas id="imageCanvas"></canvas>
+                <div id="dropZone" class="absolute inset-0 flex items-center justify-center text-gray-400 text-lg">
                     <div class="text-center">
                         <i class="fa fa-cloud-upload text-4xl mb-2"></i>
-                        <p>拖放图片到这里或点击上传按钮</p>
+                        <p>拖放圖片到這裡或點擊上傳</p>
                     </div>
                 </div>
-                
-                <!-- 浮动锁定按钮 - 仅在锁定模式下显示 -->
-                <button id="floatingLockBtn" class="floating-lock-btn btn btn-danger">
-                    <i class="fa fa-unlock lock-icon"></i> <span>解锁</span>
-                </button>
             </div>
-
-
         </main>
-
-
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // 获取DOM元素
             const canvas = document.getElementById('imageCanvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             const canvasContainer = document.getElementById('canvasContainer');
             const zoomSlider = document.getElementById('zoomSlider');
             const zoomValue = document.getElementById('zoomValue');
             const imageUpload = document.getElementById('imageUpload');
             const resetBtn = document.getElementById('resetBtn');
             const lockBtn = document.getElementById('lockBtn');
-            const floatingLockBtn = document.getElementById('floatingLockBtn');
+            const oilBtn = document.getElementById('oilBtn');
+            const sketchBtn = document.getElementById('sketchBtn');
             const dropZone = document.getElementById('dropZone');
-            const crosshairContainer = document.getElementById('crosshairContainer');
-            const controlPanel = document.getElementById('controlPanel');
-			
-			const inSlider = document.getElementById('inSlider');
-			const disSlider = document.getElementById('disSlider');
-			
-            
-            // 状态变量
+
             let image = null;
             let scale = 1;
             let offsetX = 0;
             let offsetY = 0;
             let isDragging = false;
-            let lastX, lastY;
+            let lastX = 0, lastY = 0;
             let isLocked = false;
-            let isFullscreen = false;
-            let crosshairs = [];
-			
-			let isSaveCurrent = false;
-			
-		    let oldscale = 1;
-            let oldoffsetX = 0;
-            let oldoffsetY = 0;	
-			
-            
-            // 初始化画布尺寸
+            let currentFilter = 'none'; // 'none', 'oil', 'sketch'
+
+            // 初始化畫布
             function resizeCanvas() {
-                if (isFullscreen) {
-                    canvas.width = window.innerWidth;
-                    canvas.height = window.innerHeight;
-                } else {
-                    canvas.width = canvasContainer.clientWidth;
-                    canvas.height = canvasContainer.clientHeight;
-                }
-                
-                // 重绘图像
+                canvas.width = canvasContainer.clientWidth;
+                canvas.height = canvasContainer.clientHeight;
                 drawImage();
-                
-                // 重绘十字线
-                renderCrosshairs();
             }
-            
-            // 加载图片
+
+            // 載入圖片
             function loadImage(img) {
-			isSaveCurrent = false;
                 image = img;
+                currentFilter = 'none';
                 resetView();
                 dropZone.classList.add('hidden');
-                canvas.classList.remove('hidden');
             }
-            
-            // 绘制图片
+
+            // 繪製圖片（支援濾鏡）
             function drawImage() {
                 if (!image) return;
-                
+
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-              //  cScale();
-                // 计算图片尺寸和位置
+
                 const imgWidth = image.width * scale;
                 const imgHeight = image.height * scale;
-                
-                // 居中绘制图片
                 const drawX = (canvas.width - imgWidth) / 2 + offsetX;
                 const drawY = (canvas.height - imgHeight) / 2 + offsetY;
-                
-                // 绘制图片
+
+                // 先正常繪製圖片
                 ctx.drawImage(image, drawX, drawY, imgWidth, imgHeight);
+
+                // 如果有套用濾鏡，再處理
+                if (currentFilter !== 'none') {
+                    applyFilterToCanvas(currentFilter);
+                }
             }
-			
-			function cScale(){
-			scale = 1;
-			
-			  while (image.width * scale > canvas.width && scale > 0.01) {
-                scale -= 0.05;
-                 }
-				 
-			 while (image.height * scale > canvas.height && scale > 0.01) {
-                scale -= 0.05;
-                 }
-				 
-			}
-            
-            // 重置视图
+
+            // 套用濾鏡到 Canvas
+            function applyFilterToCanvas(filterType) {
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+
+                if (filterType === 'oil') {
+                    // 簡單油畫效果（顏色平均 + 輕微噪點）
+                    for (let i = 0; i < data.length; i += 4) {
+                        const avg = (data[i] + data[i+1] + data[i+2]) / 3;
+                        data[i] = data[i+1] = data[i+2] = Math.floor(avg * 0.95 + 20); // 輕微暖色調
+                    }
+                } 
+                else if (filterType === 'sketch') {
+                    // 簡單線條 / 素描效果（邊緣增強 + 灰階）
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+                        data[i] = data[i+1] = data[i+2] = gray < 128 ? 30 : 255; // 高對比黑白線條
+                    }
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+            }
+
+            // 重置視圖
             function resetView() {
-                //scale = 1;
-				cScale();
+                scale = 1;
                 offsetX = 0;
                 offsetY = 0;
-                zoomSlider.value = scale;
+                zoomSlider.value = 1;
                 updateZoomValue();
                 drawImage();
-                clearCrosshairs();
             }
-            
-            // 更新缩放值显示
+
             function updateZoomValue() {
                 zoomValue.textContent = `${Math.round(scale * 100)}%`;
             }
-            
-            // 处理文件上传
+
+            // === 油畫效果 ===
+            oilBtn.addEventListener('click', () => {
+                if (!image) return;
+                currentFilter = currentFilter === 'oil' ? 'none' : 'oil';
+                drawImage();
+            });
+
+            // === 線條效果 ===
+            sketchBtn.addEventListener('click', () => {
+                if (!image) return;
+                currentFilter = currentFilter === 'sketch' ? 'none' : 'sketch';
+                drawImage();
+            });
+
+            // 上傳圖片
             imageUpload.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (!file) return;
-                
                 const reader = new FileReader();
-                reader.onload = function(event) {
+                reader.onload = function(ev) {
                     const img = new Image();
-                    img.onload = function() {
-                        loadImage(img);
-                    };
-                    img.src = event.target.result;
+                    img.onload = () => loadImage(img);
+                    img.src = ev.target.result;
                 };
                 reader.readAsDataURL(file);
             });
-            
-            // 处理拖放
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                canvasContainer.addEventListener(eventName, preventDefaults, false);
-            });
-            
-            function preventDefaults(e) {
+
+            // 拖放
+            canvasContainer.addEventListener('drop', (e) => {
                 e.preventDefault();
-                e.stopPropagation();
-            }
-            
-            ['dragenter', 'dragover'].forEach(eventName => {
-                canvasContainer.addEventListener(eventName, highlight, false);
-            });
-            
-            ['dragleave', 'drop'].forEach(eventName => {
-                canvasContainer.addEventListener(eventName, unhighlight, false);
-            });
-            
-            function highlight() {
-                canvasContainer.classList.add('border-primary');
-            }
-            
-            function unhighlight() {
-                canvasContainer.classList.remove('border-primary');
-            }
-            
-            canvasContainer.addEventListener('drop', handleDrop, false);
-            
-            function handleDrop(e) {
-                const dt = e.dataTransfer;
-                const file = dt.files[0];
-                
-                if (!file || !file.type.match('image.*')) return;
-                
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const img = new Image();
-                    img.onload = function() {
-                        loadImage(img);
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const img = new Image();
+                        img.onload = () => loadImage(img);
+                        img.src = ev.target.result;
                     };
-                    img.src = event.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-            
-            // 缩放控制
-            zoomSlider.addEventListener('input', function() {
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // 防止預設拖放行為
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
+                canvasContainer.addEventListener(ev, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+
+            // 縮放控制
+            zoomSlider.addEventListener('input', () => {
                 if (isLocked) return;
-                
-                scale = parseFloat(this.value);
+                scale = parseFloat(zoomSlider.value);
                 updateZoomValue();
                 drawImage();
             });
-            
-            // 重置按钮
-            resetBtn.addEventListener('click', function() {
+
+            // 放大 / 縮小按鈕
+            document.getElementById('inSlider').addEventListener('click', () => {
                 if (isLocked) return;
-                if (!isSaveCurrent) {
-				//alert("saveOlder");
-				saveOlderValue();
-				resetView();
-				isSaveCurrent=true;
-				}
-				else{
-				isSaveCurrent=false;
-				//alert("disPlayOlder");
-				displayOldValue();
-				}
-                
-            });
-			
-			function saveOlderValue(){
-			oldscale = scale;
-            oldoffsetX = offsetX;
-            oldoffsetY = offsetY;	
-			}
-			
-			function displayOldValue(){
-			    scale = oldscale;
-                offsetX = oldoffsetX;
-                offsetY = oldoffsetY;
-                zoomSlider.value = scale;
-                updateZoomValue();
-                drawImage();
-                clearCrosshairs();
-			}
-			
-			
-			disSlider.addEventListener('click', function() {
-			 if (scale<=0.2) return;
-                  scale -= 0.1;		
+                scale = Math.min(20, scale + 0.1);
                 zoomSlider.value = scale;
                 updateZoomValue();
                 drawImage();
             });
-			
-			inSlider.addEventListener('click', function() {
-		
-                scale += 0.1;		
+
+            document.getElementById('disSlider').addEventListener('click', () => {
+                if (isLocked) return;
+                scale = Math.max(0.1, scale - 0.1);
                 zoomSlider.value = scale;
                 updateZoomValue();
                 drawImage();
             });
-            
-            // 锁定/全屏按钮
-            function toggleLockMode() {
+
+            // 重置按鈕
+            resetBtn.addEventListener('click', () => {
+                if (isLocked) return;
+                currentFilter = 'none';
+                resetView();
+            });
+
+            // 鎖定模式（保留原本功能）
+            lockBtn.addEventListener('click', () => {
                 isLocked = !isLocked;
-                
                 if (isLocked) {
-                    // 进入锁定/全屏模式
-                    lockBtn.innerHTML = '<i class="fa fa-unlock lock-icon"></i> <span>解锁</span>';
                     lockBtn.classList.remove('btn-accent');
                     lockBtn.classList.add('btn-danger');
-                    floatingLockBtn.innerHTML = '<i class="fa fa-unlock lock-icon"></i> <span>解锁</span>';
-                    floatingLockBtn.classList.remove('btn-accent');
-                    floatingLockBtn.classList.add('btn-danger');
-                    
-                    // 保存当前状态
-                    const tempScale = scale;
-                    const tempOffsetX = offsetX;
-                    const tempOffsetY = offsetY;
-                    
-                    // 进入全屏
-					/*
-                    if (canvasContainer.requestFullscreen) {
-                        canvasContainer.requestFullscreen();
-                    } else if (canvasContainer.webkitRequestFullscreen) {
-                        canvasContainer.webkitRequestFullscreen();
-                    } else if (canvasContainer.msRequestFullscreen) {
-                        canvasContainer.msRequestFullscreen();
-                   }*/
-                    
-                    isFullscreen = true;
-                  //  resizeCanvas();
-                    
-                    // 重置视图
-                    resetView();
-                    
-                    // 恢复之前的缩放和偏移
-                    scale = tempScale;
-                    offsetX = tempOffsetX;
-                    offsetY = tempOffsetY;
-                    zoomSlider.value = scale;
-                    updateZoomValue();
-                    drawImage();
-                    
-                    // 隐藏控制面板，显示浮动锁定按钮和十字线容器
-                     controlPanel.classList.add('opacity-0', 'pointer-events-none');
-                     floatingLockBtn.classList.add('show-lock-btn');
-                      crosshairContainer.classList.remove('hidden');
-                    
-                    // 隐藏滚动条
-                    document.body.classList.add('overflow-hidden');
+                    lockBtn.innerHTML = '<i class="fa fa-unlock"></i> <span>解鎖</span>';
                 } else {
-                    // 退出锁定/全屏模式
-                    lockBtn.innerHTML = '<i class="fa fa-lock lock-icon"></i> <span>锁定</span>';
                     lockBtn.classList.remove('btn-danger');
                     lockBtn.classList.add('btn-accent');
-                    floatingLockBtn.innerHTML = '<i class="fa fa-lock lock-icon"></i> <span>锁定</span>';
-                    floatingLockBtn.classList.remove('btn-danger');
-                    floatingLockBtn.classList.add('btn-accent');
-                    
-                    // 退出全屏
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen();
-                    } else if (document.webkitExitFullscreen) {
-                        document.webkitExitFullscreen();
-                    } else if (document.msExitFullscreen) {
-                        document.msExitFullscreen();
-                    }
-                    
-                    isFullscreen = false;
-                    resizeCanvas();
-                    
-                    // 显示控制面板，隐藏浮动锁定按钮和十字线容器
-                    controlPanel.classList.remove('opacity-0', 'pointer-events-none');
-                    floatingLockBtn.classList.remove('show-lock-btn');
-                    crosshairContainer.classList.add('hidden');
-                    
-                    // 清除所有十字线
-                    clearCrosshairs();
-                    
-                    // 显示滚动条
-                    document.body.classList.remove('overflow-hidden');
-                }
-            }
-            
-            lockBtn.addEventListener('click', toggleLockMode);
-            floatingLockBtn.addEventListener('click', toggleLockMode);
-            
-            // 全屏变化事件
-            document.addEventListener('fullscreenchange', exitHandler);
-            document.addEventListener('webkitfullscreenchange', exitHandler);
-            document.addEventListener('mozfullscreenchange', exitHandler);
-            document.addEventListener('MSFullscreenChange', exitHandler);
-            
-            function exitHandler() {
-                if (!document.fullscreenElement && 
-                    !document.webkitIsFullScreen && 
-                    !document.mozFullScreen && 
-                    !document.msFullscreenElement) {
-                    
-                    if (isLocked) {
-                        isLocked = false;
-                        lockBtn.innerHTML = '<i class="fa fa-lock lock-icon"></i> <span>锁定</span>';
-                        lockBtn.classList.remove('btn-danger');
-                        lockBtn.classList.add('btn-accent');
-                        floatingLockBtn.innerHTML = '<i class="fa fa-lock lock-icon"></i> <span>锁定</span>';
-                        floatingLockBtn.classList.remove('btn-danger');
-                        floatingLockBtn.classList.add('btn-accent');
-                        isFullscreen = false;
-                        resizeCanvas();
-                        
-                        // 显示控制面板，隐藏浮动锁定按钮和十字线容器
-                        controlPanel.classList.remove('opacity-0', 'pointer-events-none');
-                        floatingLockBtn.classList.remove('show-lock-btn');
-                        crosshairContainer.classList.add('hidden');
-                        
-                        // 清除所有十字线
-                        clearCrosshairs();
-               
-                        // 显示滚动条
-                        document.body.classList.remove('overflow-hidden');
-                    }
-                }
-            }
-            
-            // 添加十字线
-            function addCrosshair(x, y) {
-			//alert(x+"  "+y);
-                // 创建十字线元素
-                const crosshair = document.createElement('div');
-                crosshair.className = 'crosshair';
-                crosshair.style.left = `${x}px`;
-                crosshair.style.top = `${y}px`;
-                
-                // 添加横线和竖线
-                const horizontalLine = document.createElement('div');
-                horizontalLine.className = 'crosshair-horizontal';
-                
-                const verticalLine = document.createElement('div');
-                verticalLine.className = 'crosshair-vertical';
-                
-                crosshair.appendChild(horizontalLine);
-                crosshair.appendChild(verticalLine);
-                
-                // 添加到容器
-                crosshairContainer.appendChild(crosshair);
-                
-                // 保存十字线信息
-                crosshairs.push({
-                    element: crosshair,
-                    x: x,
-                    y: y
-                });
-            }
-            
-            // 清除所有十字线
-            function clearCrosshairs() {
-                crosshairs.forEach(ch => {
-                    ch.element.remove();
-                });
-                crosshairs = [];
-            }
-            
-            // 重绘十字线
-            function renderCrosshairs() {
-                // 清除现有十字线元素
-                crosshairContainer.innerHTML = '';
-                
-                // 重新创建所有十字线
-                crosshairs.forEach(ch => {
-                    const crosshair = document.createElement('div');
-                    crosshair.className = 'crosshair';
-                    crosshair.style.left = `${ch.x}px`;
-                    crosshair.style.top = `${ch.y}px`;
-                    
-                    const horizontalLine = document.createElement('div');
-                    horizontalLine.className = 'crosshair-horizontal';
-                    
-                    const verticalLine = document.createElement('div');
-                    verticalLine.className = 'crosshair-vertical';
-                    
-                    crosshair.appendChild(horizontalLine);
-                    crosshair.appendChild(verticalLine);
-                    
-                    crosshairContainer.appendChild(crosshair);
-                    
-                    // 更新引用
-                    ch.element = crosshair;
-                });
-            }
-            
-            // 鼠标事件 - 拖动
-            canvas.addEventListener('mousedown', function(e) {
-                if (isLocked) {
-                    // 在锁定模式下，点击显示十字线
-                    const rect = canvas.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    
-                    addCrosshair(x, y);
-                } else {
-                    // 非锁定模式下允许拖动
-                    isDragging = true;
-                    lastX = e.clientX - offsetX;
-                    lastY = e.clientY - offsetY;
+                    lockBtn.innerHTML = '<i class="fa fa-lock"></i> <span>鎖定</span>';
                 }
             });
-            
-            canvas.addEventListener('mousemove', function(e) {
+
+            // 滑鼠拖動
+            canvas.addEventListener('mousedown', (e) => {
+                if (isLocked) return;
+                isDragging = true;
+                lastX = e.clientX - offsetX;
+                lastY = e.clientY - offsetY;
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
                 if (!isDragging || isLocked) return;
-                
                 offsetX = e.clientX - lastX;
                 offsetY = e.clientY - lastY;
                 drawImage();
             });
-            
-            canvas.addEventListener('mouseup', function() {
-                isDragging = false;
-            });
-            
-            canvas.addEventListener('mouseleave', function() {
-                isDragging = false;
-            });
-            
-            // 触摸事件 - 拖动（移动设备）
-            canvas.addEventListener('touchstart', function(e) {
-                if (isLocked) {
-                    // 在锁定模式下，触摸显示十字线
-                    const rect = canvas.getBoundingClientRect();
-                    const touch = e.touches[0];
-                    const x = touch.clientX - rect.left;
-                    const y = touch.clientY - rect.top;
-                    
-                    addCrosshair(x, y);
-                } else {
-                    // 非锁定模式下允许拖动
-                    isDragging = true;
-                    lastX = e.touches[0].clientX - offsetX;
-                    lastY = e.touches[0].clientY - offsetY;
-                }
-            });
-            
-            canvas.addEventListener('touchmove', function(e) {
-                if (!isDragging || isLocked) return;
-                
-                e.preventDefault();
-                offsetX = e.touches[0].clientX - lastX;
-                offsetY = e.touches[0].clientY - lastY;
-                drawImage();
-            });
-            
-            canvas.addEventListener('touchend', function() {
-                isDragging = false;
-            });
-            
-            // 滚轮事件 - 缩放
-            canvas.addEventListener('wheel', function(e) {
+
+            window.addEventListener('mouseup', () => isDragging = false);
+
+            // 滾輪縮放
+            canvas.addEventListener('wheel', (e) => {
                 if (isLocked) return;
-                
                 e.preventDefault();
-                
-                // 获取鼠标在画布上的位置
-                const rect = canvas.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
-                
-                // 计算鼠标在图像上的相对位置
-                const imgWidth = image.width * scale;
-                const imgHeight = image.height * scale;
-                const imgX = (canvas.width - imgWidth) / 2 + offsetX;
-                const imgY = (canvas.height - imgHeight) / 2 + offsetY;
-                const relX = mouseX - imgX;
-                const relY = mouseY - imgY;
-                
-                // 根据滚轮方向调整缩放
                 const delta = e.deltaY > 0 ? -0.1 : 0.1;
-                const newScale = Math.max(0.1, Math.min(20, scale + delta));
-                
-                // 计算缩放后的图像尺寸
-                const newImgWidth = image.width * newScale;
-                const newImgHeight = image.height * newScale;
-                
-                // 调整偏移量，使鼠标指向的点保持不变
-                const newImgX = (canvas.width - newImgWidth) / 2 + offsetX;
-                const newImgY = (canvas.height - newImgHeight) / 2 + offsetY;
-                
-                // 计算新的偏移量
-                offsetX += (mouseX - newImgX) - (mouseX - imgX) * (newScale / scale);
-                offsetY += (mouseY - newImgY) - (mouseY - imgY) * (newScale / scale);
-                
-                // 更新缩放
-                scale = newScale;
+                scale = Math.max(0.1, Math.min(20, scale + delta));
                 zoomSlider.value = scale;
                 updateZoomValue();
                 drawImage();
             });
-            
-            // 窗口大小变化时调整画布大小
+
+            // 視窗調整
             window.addEventListener('resize', resizeCanvas);
-            
+
             // 初始化
             resizeCanvas();
         });
     </script>
 </body>
 </html>
-    
