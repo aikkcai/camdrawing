@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>圖片不變形 - 全屏分割觸控映射</title>
+    <title>按屏幕真实比例分割</title>
     <style>
         * {
             margin: 0;
@@ -48,7 +48,6 @@
             display: block;
         }
 
-        /* 全屏退出按鈕（預設隱藏） */
         #exitFullscreen {
             position: fixed;
             top: 20px;
@@ -105,7 +104,8 @@ const exitFullscreen = document.getElementById('exitFullscreen');
 let cw, ch;
 let img = null;
 
-let imgX = 0, imgY = 0, imgW = 0, imgH = 0;
+let imgX = 0, imgY = 0;
+let imgW = 0, imgH = 0;
 let zoom = 1;
 let moveSpeed = 20;
 
@@ -116,29 +116,47 @@ let zones = [];
 let selectedZone = 0;
 let fullScreenX = 0, fullScreenY = 0;
 
-// 初始化畫布
+// 屏幕真实物理比例
+let screenRatio = window.screen.width / window.screen.height;
+let view = { x:0, y:0, w:0, h:0 };
+
 function resizeCanvas() {
     cw = canvas.width = window.innerWidth;
     ch = canvas.height = window.innerHeight - (toolbar.style.display === 'none' ? 0 : 56);
+
+    // 按屏幕真实比例计算居中显示区域
+    if (cw / ch > screenRatio) {
+        view.h = ch;
+        view.w = ch * screenRatio;
+    } else {
+        view.w = cw;
+        view.h = cw / screenRatio;
+    }
+    view.x = (cw - view.w) / 2;
+    view.y = (ch - view.h) / 2;
+
     createZones();
     updateImagePosition();
     draw();
 }
+
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
-// 建立分割區
+// 按屏幕比例区域分割
 function createZones() {
     zones = [];
-    const zoneW = cw / COLS;
-    const zoneH = ch / ROWS;
+    const zoneW = view.w / COLS;
+    const zoneH = view.h / ROWS;
+
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
+            const x = view.x + c * zoneW;
+            const y = view.y + r * zoneH;
             zones.push({
-                x: c * zoneW, y: r * zoneH,
-                w: zoneW, h: zoneH,
-                cx: c * zoneW + zoneW/2,
-                cy: r * zoneH + zoneH/2
+                x, y, w: zoneW, h: zoneH,
+                cx: x + zoneW/2,
+                cy: y + zoneH/2
             });
         }
     }
@@ -165,28 +183,28 @@ fileInput.onchange = (e) => {
         img = image;
         zoom = 1;
         zoomSlider.value = 100;
+        imgX = imgY = 0;
         updateImagePosition();
         draw();
     };
     image.src = URL.createObjectURL(f);
 };
 
-// 圖片等比例 + 縮放
+// 圖片等比例
 function updateImagePosition() {
     if (!img) return;
-    const ratio = Math.min(cw / img.width, ch / img.height) * zoom;
-    imgW = img.width * ratio;
-    imgH = img.height * ratio;
+    const r = Math.min(view.w / img.width, view.h / img.height) * zoom;
+    imgW = img.width * r;
+    imgH = img.height * r;
     draw();
 }
 
-// 選擇區域
 zoneSelect.onchange = () => {
     selectedZone = parseInt(zoneSelect.value);
     draw();
 };
 
-// 縮放控制
+// 縮放
 zoomInBtn.onclick = () => {
     zoom = Math.min(zoom + 0.1, 3);
     zoomSlider.value = zoom * 100;
@@ -202,13 +220,12 @@ zoomSlider.oninput = () => {
     updateImagePosition();
 };
 
-// 上下左右按鈕
+// 移動
 btnUp.onclick = () => { imgY -= moveSpeed; draw(); }
 btnDown.onclick = () => { imgY += moveSpeed; draw(); }
 btnLeft.onclick = () => { imgX -= moveSpeed; draw(); }
 btnRight.onclick = () => { imgX += moveSpeed; draw(); }
 
-// 鍵盤方向鍵
 window.addEventListener('keydown', (e) => {
     if (!img) return;
     switch(e.key) {
@@ -220,15 +237,12 @@ window.addEventListener('keydown', (e) => {
     draw();
 });
 
-// ======================
-// 全屏 / 退出 功能
-// ======================
+// 全屏
 fullscreenBtn.onclick = () => {
     toolbar.style.display = 'none';
     exitFullscreen.style.display = 'block';
     resizeCanvas();
 };
-
 exitFullscreen.onclick = () => {
     toolbar.style.display = 'flex';
     exitFullscreen.style.display = 'none';
@@ -240,40 +254,43 @@ function draw() {
     ctx.clearRect(0, 0, cw, ch);
     if (!img) return;
 
-    ctx.drawImage(img, imgX, imgY, imgW, imgH);
+    // 画图片
+    ctx.drawImage(img, view.x + imgX, view.y + imgY, imgW, imgH);
 
-    // 紅色分割線
+    // 画外框与分割线
     ctx.strokeStyle = '#ff0000';
     ctx.lineWidth = 2;
-    ctx.strokeRect(0,0,cw,ch);
+    ctx.strokeRect(view.x, view.y, view.w, view.h);
 
+    // 竖线
     for (let i=1; i<COLS; i++) {
-        const x = (cw/COLS)*i;
+        const x = view.x + view.w/COLS*i;
         ctx.beginPath();
-        ctx.moveTo(x,0); ctx.lineTo(x,ch);
+        ctx.moveTo(x, view.y);
+        ctx.lineTo(x, view.y+view.h);
         ctx.stroke();
     }
+    // 横线
     for (let i=1; i<ROWS; i++) {
-        const y = (ch/ROWS)*i;
+        const y = view.y + view.h/ROWS*i;
         ctx.beginPath();
-        ctx.moveTo(0,y); ctx.lineTo(cw,y);
+        ctx.moveTo(view.x, y);
+        ctx.lineTo(view.x+view.w, y);
         ctx.stroke();
     }
 
-    // 編號
+    // 编号
     ctx.fillStyle = '#ff0000';
     ctx.font = 'bold 32px Arial';
     ctx.textAlign = 'center';
-    zones.forEach((z,i) => {
-        ctx.fillText(i+1, z.cx, z.cy);
-    });
+    zones.forEach((z,i) => ctx.fillText(i+1, z.cx, z.cy));
 
-    // 觸控映射
+    // 触控按屏幕比例映射
+    const rx = (fullScreenX - view.x) / view.w;
+    const ry = (fullScreenY - view.y) / view.h;
     const z = zones[selectedZone];
-    const ratioX = fullScreenX / cw;
-    const ratioY = fullScreenY / ch;
-    const lx = z.x + ratioX * z.w;
-    const ly = z.y + ratioY * z.h;
+    const lx = z.x + rx * z.w;
+    const ly = z.y + ry * z.h;
 
     ctx.strokeStyle = '#ff0000';
     ctx.lineWidth = 2;
