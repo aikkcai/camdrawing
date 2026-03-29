@@ -204,21 +204,16 @@ zoneSelect.onchange = () => {
     draw();
 };
 
-// 縮放
-zoomInBtn.onclick = () => {
-    zoom = Math.min(zoom + 0.1, 3);
+// 縮放功能 (按鈕 + slider)
+function applyZoom(newZoom) {
+    zoom = Math.max(0.1, Math.min(5, newZoom));
     zoomSlider.value = zoom * 100;
     updateImagePosition();
-};
-zoomOutBtn.onclick = () => {
-    zoom = Math.max(zoom - 0.1, 0.1);
-    zoomSlider.value = zoom * 100;
-    updateImagePosition();
-};
-zoomSlider.oninput = () => {
-    zoom = zoomSlider.value / 100;
-    updateImagePosition();
-};
+}
+
+zoomInBtn.onclick = () => applyZoom(zoom + 0.1);
+zoomOutBtn.onclick = () => applyZoom(zoom - 0.1);
+zoomSlider.oninput = () => applyZoom(zoomSlider.value / 100);
 
 // 移動
 btnUp.onclick = () => { imgY -= moveSpeed; draw(); }
@@ -226,8 +221,22 @@ btnDown.onclick = () => { imgY += moveSpeed; draw(); }
 btnLeft.onclick = () => { imgX -= moveSpeed; draw(); }
 btnRight.onclick = () => { imgX += moveSpeed; draw(); }
 
+// =======================
+// 鍵盤 + - 放大縮小
+// =======================
 window.addEventListener('keydown', (e) => {
     if (!img) return;
+
+    // 鍵盤 + 號 → 放大
+    if (e.key === '+' || e.key === '=') {
+        applyZoom(zoom + 0.1);
+    }
+    // 鍵盤 - 號 → 縮小
+    else if (e.key === '-' || e.key === '_') {
+        applyZoom(zoom - 0.1);
+    }
+
+    // 方向鍵移動
     switch(e.key) {
         case 'ArrowUp': imgY -= moveSpeed; break;
         case 'ArrowDown': imgY += moveSpeed; break;
