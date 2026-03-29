@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖片明度簡化工具（可調區間）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 24px;
+        }
+
+        .upload-area {
+            border: 3px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            border-color: #666;
+            background-color: #fafafa;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .upload-text {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .control-panel {
+            margin: 25px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        .slider-group {
+            margin: 15px 0;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .black-label { color: #000; }
+        .gray-label { color: #888; }
+        .white-label { color: #222; }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .image-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .image-box {
+            flex: 1;
+            min-width: 300px;
+            text-align: center;
+        }
+
+        .image-box h3 {
+            color: #444;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        #originalImg, #processedImg {
+            max-width: 100% !important;
+            max-height: 400px !important;
+            width: auto !important;
+            height: auto !important;
+            object-fit: contain !important;
+            border-radius: 6px;
+            border: 1px solid #eee;
+        }
+
+        .loading {
+            color: #666;
+            font-size: 16px;
+            text-align: center;
+            margin: 20px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>圖片明度簡化（黑 / 灰 / 白）</h1>
+        
+        <label class="upload-area" for="fileInput">
+            <div class="upload-text">點擊上傳圖片 / 拖放圖片到此處</div>
+        </label>
+        <input type="file" id="fileInput" accept="image/*">
+
+        <div class="control-panel">
+            <div class="slider-group">
+                <div class="slider-label black-label">
+                    <span>黑色區間上限 (0 ~ 黑色上限)</span>
+                    <span id="blackValue">85</span>
+                </div>
+                <input type="range" id="blackSlider" min="10" max="245" value="85">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-label gray-label">
+                    <span>灰色區間上限 (黑色上限 ~ 灰色上限)</span>
+                    <span id="grayValue">170</span>
+                </div>
+                <input type="range" id="graySlider" min="10" max="245" value="170">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-label white-label">
+                    <span>白色區間（數值越小 → 白色越多）</span>
+                    <span id="whiteValue">170</span>
+                </div>
+                <input type="range" id="whiteSlider" min="10" max="245" value="170">
+            </div>
+        </div>
+
+        <div class="loading" id="loading">處理中，請稍候...</div>
+
+        <div class="image-container" id="resultContainer">
+            <div class="image-box">
+                <h3>原始圖片</h3>
+                <img id="originalImg" style="display: none;">
+            </div>
+            <div class="image-box">
+                <h3>處理後圖片</h3>
+                <img id="processedImg" style="display: none;">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const originalImg = document.getElementById('originalImg');
+        const processedImg = document.getElementById('processedImg');
+        const loading = document.getElementById('loading');
+        const uploadArea = document.querySelector('.upload-area');
+        const resultContainer = document.getElementById('resultContainer');
+
+        const blackSlider = document.getElementById('blackSlider');
+        const graySlider = document.getElementById('graySlider');
+        const whiteSlider = document.getElementById('whiteSlider');
+        const blackValue = document.getElementById('blackValue');
+        const grayValue = document.getElementById('grayValue');
+        const whiteValue = document.getElementById('whiteValue');
+
+        const BLACK = [0, 0, 0];
+        const GRAY = [150, 150, 150];
+        const WHITE = [255, 255, 255];
+
+        let blackThreshold = 85;
+        let grayThreshold = 170;
+        let currentImage = null;
+
+        fileInput.addEventListener('change', handleImageUpload);
+
+        uploadArea.addEventListener('dragover', e => e.preventDefault());
+        uploadArea.addEventListener('drop', e => {
+            e.preventDefault();
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleImageUpload();
+            }
+        });
+
+        // 黑色滑塊
+        blackSlider.addEventListener('input', () => {
+            blackThreshold = parseInt(blackSlider.value);
+            if (blackThreshold >= grayThreshold) {
+                grayThreshold = blackThreshold + 1;
+                graySlider.value = grayThreshold;
+            }
+            updateValues();
+            if (currentImage) processImage(currentImage);
+        });
+
+        // 灰色滑塊
+        graySlider.addEventListener('input', () => {
+            grayThreshold = parseInt(graySlider.value);
+            if (grayThreshold <= blackThreshold) {
+                blackThreshold = grayThreshold - 1;
+                blackSlider.value = blackThreshold;
+            }
+            updateValues();
+            if (currentImage) processImage(currentImage);
+        });
+
+        // ✅ 關鍵修復：白色滑塊「拉越大 → 白色越多」
+        whiteSlider.addEventListener('input', () => {
+            let val = parseInt(whiteSlider.value);
+            
+            // 重點：數值越大 → 灰色上限“越小” → 白色越多
+            grayThreshold = 255 - val;  
+            
+            // 黑色自動適應
+            blackThreshold = grayThreshold / 2;
+
+            blackSlider.value = blackThreshold;
+            graySlider.value = grayThreshold;
+            
+            updateValues();
+            if (currentImage) processImage(currentImage);
+        });
+
+        function updateValues() {
+            blackValue.textContent = Math.round(blackThreshold);
+            grayValue.textContent = Math.round(grayThreshold);
+            whiteValue.textContent = Math.round(255 - grayThreshold);
+        }
+
+        function handleImageUpload() {
+            const file = fileInput.files[0];
+            if (!file || !file.type.startsWith('image/')) {
+                alert('請上傳有效圖片！');
+                return;
+            }
+
+            loading.style.display = 'block';
+            resultContainer.style.display = 'none';
+
+            const reader = new FileReader();
+            reader.onload = e => {
+                originalImg.src = e.target.result;
+                originalImg.onload = () => {
+                    currentImage = originalImg;
+                    processImage(currentImage);
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function processImage(img) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            const maxDisplayWidth = 800;
+            const maxDisplayHeight = 400;
+            
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxDisplayWidth) {
+                height = (maxDisplayWidth / width) * height;
+                width = maxDisplayWidth;
+            }
+            if (height > maxDisplayHeight) {
+                width = (maxDisplayHeight / height) * width;
+                height = maxDisplayHeight;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = imageData.data;
+
+            for (let i = 0; i < pixels.length; i += 4) {
+                const r = pixels[i];
+                const g = pixels[i + 1];
+                const b = pixels[i + 2];
+                const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+
+                let color;
+                if (brightness < blackThreshold) {
+                    color = BLACK;
+                } else if (brightness < grayThreshold) {
+                    color = GRAY;
+                } else {
+                    color = WHITE;
+                }
+
+                pixels[i] = color[0];
+                pixels[i + 1] = color[1];
+                pixels[i + 2] = color[2];
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+            processedImg.src = canvas.toDataURL('image/png');
+            
+            processedImg.style.display = 'block';
+            originalImg.style.display = 'block';
+
+            loading.style.display = 'none';
+            resultContainer.style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
