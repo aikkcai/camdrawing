@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>按屏幕真实比例分割</title>
+    <title>智能分割 - 鍵盤加縮放 + 自動增減分割</title>
     <style>
         * {
             margin: 0;
@@ -75,13 +75,11 @@
         <button id="btnRight">→</button>
 
         <button id="fullscreenBtn">全屏</button>
-
         <select id="zoneSelect"></select>
         <input type="file" id="fileInput" accept="image/*">
     </div>
 
     <button id="exitFullscreen">退出全屏</button>
-
     <canvas id="canvas"></canvas>
 
 <script>
@@ -109,22 +107,27 @@ let imgW = 0, imgH = 0;
 let zoom = 1;
 let moveSpeed = 20;
 
-const COLS = 3;
-const ROWS = 2;
+// 自動分割核心參數
+let COLS = 3;
+let ROWS = 2;
+const MIN_GRID = 1;
+const MAX_GRID = 10;
 
 let zones = [];
 let selectedZone = 0;
 let fullScreenX = 0, fullScreenY = 0;
 
-// 屏幕真实物理比例
 let screenRatio = window.screen.width / window.screen.height;
 let view = { x:0, y:0, w:0, h:0 };
+
+// 初始化
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
 
 function resizeCanvas() {
     cw = canvas.width = window.innerWidth;
     ch = canvas.height = window.innerHeight - (toolbar.style.display === 'none' ? 0 : 56);
 
-    // 按屏幕真实比例计算居中显示区域
     if (cw / ch > screenRatio) {
         view.h = ch;
         view.w = ch * screenRatio;
@@ -140,24 +143,16 @@ function resizeCanvas() {
     draw();
 }
 
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
-
-// 按屏幕比例区域分割
+// 建立分割
 function createZones() {
     zones = [];
     const zoneW = view.w / COLS;
     const zoneH = view.h / ROWS;
-
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
+    for (let r=0; r<ROWS; r++) {
+        for (let c=0; c<COLS; c++) {
             const x = view.x + c * zoneW;
             const y = view.y + r * zoneH;
-            zones.push({
-                x, y, w: zoneW, h: zoneH,
-                cx: x + zoneW/2,
-                cy: y + zoneH/2
-            });
+            zones.push({ x,y, w:zoneW, h:zoneH, cx:x+zoneW/2, cy:y+zoneH/2 });
         }
     }
     initSelect();
@@ -165,153 +160,160 @@ function createZones() {
 
 function initSelect() {
     zoneSelect.innerHTML = '';
-    zones.forEach((z,i) => {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = `分割區 ${i+1}`;
+    zones.forEach((z,i)=>{
+        const opt=document.createElement('option');
+        opt.value=i;
+        opt.textContent=`分割 ${i+1}`;
         zoneSelect.appendChild(opt);
     });
 }
 
 // 上傳圖片
-uploadBtn.onclick = () => fileInput.click();
-fileInput.onchange = (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const image = new Image();
-    image.onload = () => {
-        img = image;
-        zoom = 1;
-        zoomSlider.value = 100;
-        imgX = imgY = 0;
-        updateImagePosition();
-        draw();
+uploadBtn.onclick = ()=>fileInput.click();
+fileInput.onchange = (e)=>{
+    const f=e.target.files[0];
+    if(!f)return;
+    const im=new Image();
+    im.onload=()=>{
+        img=im; zoom=1; zoomSlider.value=100; imgX=imgY=0;
+        updateImagePosition(); autoAdjustGrid(); draw();
     };
-    image.src = URL.createObjectURL(f);
+    im.src=URL.createObjectURL(f);
 };
 
-// 圖片等比例
+// 圖片尺寸
 function updateImagePosition() {
-    if (!img) return;
-    const r = Math.min(view.w / img.width, view.h / img.height) * zoom;
-    imgW = img.width * r;
-    imgH = img.height * r;
+    if(!img)return;
+    const r=Math.min(view.w/img.width, view.h/img.height)*zoom;
+    imgW=img.width*r;
+    imgH=img.height*r;
+}
+
+// 縮放控制
+function doZoom(change) {
+    zoom=Math.max(0.1, Math.min(3, zoom+change));
+    zoomSlider.value=zoom*100;
+    updateImagePosition();
+    autoAdjustGrid();
     draw();
 }
 
-zoneSelect.onchange = () => {
-    selectedZone = parseInt(zoneSelect.value);
+zoomInBtn.onclick=()=>doZoom(0.1);
+zoomOutBtn.onclick=()=>doZoom(-0.1);
+zoomSlider.oninput=()=>{
+    zoom=zoomSlider.value/100;
+    updateImagePosition();
+    autoAdjustGrid();
     draw();
 };
 
-// 縮放
-zoomInBtn.onclick = () => {
-    zoom = Math.min(zoom + 0.1, 3);
-    zoomSlider.value = zoom * 100;
-    updateImagePosition();
-};
-zoomOutBtn.onclick = () => {
-    zoom = Math.max(zoom - 0.1, 0.1);
-    zoomSlider.value = zoom * 100;
-    updateImagePosition();
-};
-zoomSlider.oninput = () => {
-    zoom = zoomSlider.value / 100;
-    updateImagePosition();
-};
+// ==========================
+// 核心：自動增減分割
+// ==========================
+function autoAdjustGrid() {
+    if(!img)return;
+    
+    const imgRatio=img.width/img.height;
+    const totalW=imgW;
+    const totalH=imgH;
+    const cellW=view.w/COLS;
+    const cellH=view.h/ROWS;
+
+    let needCols=Math.max(MIN_GRID, Math.min(MAX_GRID, Math.ceil(totalW/cellW)));
+    let needRows=Math.max(MIN_GRID, Math.min(MAX_GRID, Math.ceil(totalH/cellH)));
+
+    if(needCols!==COLS || needRows!==ROWS) {
+        COLS=needCols;
+        ROWS=needRows;
+        createZones();
+    }
+}
 
 // 移動
-btnUp.onclick = () => { imgY -= moveSpeed; draw(); }
-btnDown.onclick = () => { imgY += moveSpeed; draw(); }
-btnLeft.onclick = () => { imgX -= moveSpeed; draw(); }
-btnRight.onclick = () => { imgX += moveSpeed; draw(); }
+btnUp.onclick=()=>{imgY-=moveSpeed; draw();}
+btnDown.onclick=()=>{imgY+=moveSpeed; draw();}
+btnLeft.onclick=()=>{imgX-=moveSpeed; draw();}
+btnRight.onclick=()=>{imgX+=moveSpeed; draw();}
 
-window.addEventListener('keydown', (e) => {
-    if (!img) return;
-    switch(e.key) {
-        case 'ArrowUp': imgY -= moveSpeed; break;
-        case 'ArrowDown': imgY += moveSpeed; break;
-        case 'ArrowLeft': imgX -= moveSpeed; break;
-        case 'ArrowRight': imgX += moveSpeed; break;
+// ==========================
+// 鍵盤 + - 控制縮放 + 自動分割
+// ==========================
+window.addEventListener('keydown',(e)=>{
+    if(!img)return;
+    if(e.key==='+'||e.key==='='){
+        doZoom(0.1);
+    }else if(e.key==='-'||e.key==='_'){
+        doZoom(-0.1);
+    }
+
+    switch(e.key){
+        case 'ArrowUp':imgY-=moveSpeed; break;
+        case 'ArrowDown':imgY+=moveSpeed; break;
+        case 'ArrowLeft':imgX-=moveSpeed; break;
+        case 'ArrowRight':imgX+=moveSpeed; break;
     }
     draw();
 });
 
 // 全屏
-fullscreenBtn.onclick = () => {
-    toolbar.style.display = 'none';
-    exitFullscreen.style.display = 'block';
+fullscreenBtn.onclick=()=>{
+    toolbar.style.display='none';
+    exitFullscreen.style.display='block';
     resizeCanvas();
 };
-exitFullscreen.onclick = () => {
-    toolbar.style.display = 'flex';
-    exitFullscreen.style.display = 'none';
+exitFullscreen.onclick=()=>{
+    toolbar.style.display='flex';
+    exitFullscreen.style.display='none';
     resizeCanvas();
 };
+
+zoneSelect.onchange=()=>{selectedZone=parseInt(zoneSelect.value); draw();}
 
 // 繪製
 function draw() {
-    ctx.clearRect(0, 0, cw, ch);
-    if (!img) return;
+    ctx.clearRect(0,0,cw,ch);
+    if(!img)return;
 
-    // 画图片
-    ctx.drawImage(img, view.x + imgX, view.y + imgY, imgW, imgH);
+    ctx.drawImage(img, view.x+imgX, view.y+imgY, imgW, imgH);
 
-    // 画外框与分割线
-    ctx.strokeStyle = '#ff0000';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(view.x, view.y, view.w, view.h);
+    ctx.strokeStyle='#ff0000'; ctx.lineWidth=2;
+    ctx.strokeRect(view.x,view.y,view.w,view.h);
 
-    // 竖线
-    for (let i=1; i<COLS; i++) {
-        const x = view.x + view.w/COLS*i;
-        ctx.beginPath();
-        ctx.moveTo(x, view.y);
-        ctx.lineTo(x, view.y+view.h);
-        ctx.stroke();
+    for(let i=1;i<COLS;i++){
+        const x=view.x+view.w/COLS*i;
+        ctx.beginPath(); ctx.moveTo(x,view.y); ctx.lineTo(x,view.y+view.h); ctx.stroke();
     }
-    // 横线
-    for (let i=1; i<ROWS; i++) {
-        const y = view.y + view.h/ROWS*i;
-        ctx.beginPath();
-        ctx.moveTo(view.x, y);
-        ctx.lineTo(view.x+view.w, y);
-        ctx.stroke();
+    for(let i=1;i<ROWS;i++){
+        const y=view.y+view.h/ROWS*i;
+        ctx.beginPath(); ctx.moveTo(view.x,y); ctx.lineTo(view.x+view.w,y); ctx.stroke();
     }
 
-    // 编号
-    ctx.fillStyle = '#ff0000';
-    ctx.font = 'bold 32px Arial';
-    ctx.textAlign = 'center';
-    zones.forEach((z,i) => ctx.fillText(i+1, z.cx, z.cy));
+    ctx.fillStyle='#ff0000'; ctx.font='bold 28px Arial'; ctx.textAlign='center';
+    zones.forEach((z,i)=>ctx.fillText(i+1,z.cx,z.cy));
 
-    // 触控按屏幕比例映射
-    const rx = (fullScreenX - view.x) / view.w;
-    const ry = (fullScreenY - view.y) / view.h;
-    const z = zones[selectedZone];
-    const lx = z.x + rx * z.w;
-    const ly = z.y + ry * z.h;
+    const rx=(fullScreenX-view.x)/view.w;
+    const ry=(fullScreenY-view.y)/view.h;
+    const z=zones[selectedZone];
+    const lx=z.x+rx*z.w;
+    const ly=z.y+ry*z.h;
 
-    ctx.strokeStyle = '#ff0000';
-    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(z.x, ly); ctx.lineTo(z.x+z.w, ly);
-    ctx.moveTo(lx, z.y); ctx.lineTo(lx, z.y+z.h);
+    ctx.moveTo(z.x,ly); ctx.lineTo(z.x+z.w,ly);
+    ctx.moveTo(lx,z.y); ctx.lineTo(lx,z.y+z.h);
     ctx.stroke();
 }
 
 // 觸控
 function updateTouch(e) {
-    const rect = canvas.getBoundingClientRect();
-    fullScreenX = e.clientX - rect.left;
-    fullScreenY = e.clientY - rect.top;
+    const rect=canvas.getBoundingClientRect();
+    fullScreenX=e.clientX-rect.left;
+    fullScreenY=e.clientY-rect.top;
     draw();
 }
 
-window.addEventListener('mousemove', updateTouch);
-window.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    updateTouch(e.touches[0]);
+window.addEventListener('mousemove',updateTouch);
+window.addEventListener('touchmove',(e)=>{
+    e.preventDefault(); updateTouch(e.touches[0]);
 });
 </script>
 </body>
