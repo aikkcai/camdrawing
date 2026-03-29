@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>紅外觸屏 - 圖片精準十字定位</title>
+    <title>多觸屏拼接 - 映射計算十字線</title>
     <style>
         * {
             margin: 0;
@@ -12,22 +12,22 @@
             font-family: Arial, sans-serif;
         }
         body {
-            background: #222;
+            background: #111;
             display: flex;
             flex-direction: column;
             height: 100vh;
             overflow: hidden;
         }
-        .bar {
-            background: #333;
+        .toolbar {
+            background: #222;
             padding: 10px;
             display: flex;
             gap: 8px;
         }
         button {
-            padding: 8px 12px;
-            background: #09f;
-            color: #fff;
+            padding: 8px 14px;
+            background: #0099ff;
+            color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
@@ -41,10 +41,10 @@
     </style>
 </head>
 <body>
-    <div class="bar">
-        <button id="upload">載入圖片</button>
-        <button id="zoomIn">放大 +</button>
-        <button id="zoomOut">縮小 -</button>
+    <div class="toolbar">
+        <button id="btnUpload">載入圖片</button>
+        <button id="btnZoomIn">放大 +</button>
+        <button id="btnZoomOut">縮小 -</button>
         <input type="file" id="fileInput" accept="image/*">
     </div>
     <canvas id="canvas"></canvas>
@@ -54,31 +54,36 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let cw, ch;
 
-// 圖片狀態
+// 圖片與操作
 let img = null;
 let scale = 1;
 let offsetX = 0;
 let offsetY = 0;
-
-// 觸摸 / 滑鼠
-let isDrag = false;
+let isDragging = false;
 let lastX, lastY;
-let crossScreenX = 0, crossScreenY = 0;
 
-// 視窗大小
-function resize() {
+// 觸點：最終計算出來的十字交點
+let crossX = 0;
+let crossY = 0;
+
+// ======================
+// 畫布適應螢幕
+// ======================
+function resizeCanvas() {
     cw = canvas.width = window.innerWidth;
     ch = canvas.height = window.innerHeight - 50;
     draw();
 }
-resize();
-window.addEventListener('resize', resize);
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
 
-// 上傳圖片
-document.getElementById('upload').onclick = () => fileInput.click();
-fileInput.onchange = e => {
-    const f = e.target.files[0];
-    if (!f) return;
+// ======================
+// 圖片上傳
+// ======================
+btnUpload.onclick = () => fileInput.click();
+fileInput.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
     const im = new Image();
     im.onload = () => {
         img = im;
@@ -87,92 +92,118 @@ fileInput.onchange = e => {
         offsetY = (ch - img.height) / 2;
         draw();
     };
-    im.src = URL.createObjectURL(f);
+    im.src = URL.createObjectURL(file);
 };
 
-// 放大縮小
-document.getElementById('zoomIn').onclick = () => { scale *= 1.1; draw(); };
-document.getElementById('zoomOut').onclick = () => { scale /= 1.1; draw(); };
+// ======================
+// 放大 / 縮小
+// ======================
+btnZoomIn.onclick = () => { scale *= 1.1; draw(); }
+btnZoomOut.onclick = () => { scale /= 1.1; draw(); }
 window.addEventListener('keydown', e => {
-    if (e.key === '+') scale *= 1.1;
-    if (e.key === '-') scale /= 1.1;
+    if (e.key === '+' || e.key === '=') scale *= 1.1;
+    if (e.key === '-' || e.key === '_') scale /= 1.1;
     draw();
 });
 
-// 畫圖
-function draw() {
-    ctx.clearRect(0, 0, cw, ch);
-    if (!img) return;
+// ======================
+// 核心：映射計算
+// ======================
+// 模擬：多塊紅外觸屏 → 計算出「邏輯大畫面」的座標
+function calcTouchPoint(touchClientX, touchClientY) {
+    const rect = canvas.getBoundingClientRect();
+    // 1. 先拿到當前螢幕相對 Canvas 的位置
+    let sx = touchClientX - rect.left;
+    let sy = touchClientY - rect.top;
 
-    // 畫圖片
-    ctx.save();
-    ctx.translate(offsetX, offsetY);
-    ctx.scale(scale, scale);
-    ctx.drawImage(img, 0, 0);
-    ctx.restore();
+    // ======================
+    // 你真正的計算寫在這裡
+    // 多塊觸屏拼接 → 映射到大畫面 Canvas
+    // ======================
+    // 示例：簡單映射（你可改成你的拼接算法）
+    let mappedX = sx;
+    let mappedY = sy;
 
-    // 畫十字線
-    ctx.strokeStyle = '#ff0000';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(0, crossScreenY);
-    ctx.lineTo(cw, crossScreenY);
-    ctx.moveTo(crossScreenX, 0);
-    ctx.lineTo(crossScreenX, ch);
-    ctx.stroke();
+    return { x: mappedX, y: mappedY };
 }
 
-// 螢幕座標 → 轉 → 圖片內部座標
+// ======================
+// 螢幕 → 圖片座標轉換
+// ======================
 function screenToImage(sx, sy) {
     return {
         x: (sx - offsetX) / scale,
         y: (sy - offsetY) / scale
     };
 }
-// 圖片內部座標 → 轉 → 螢幕座標
-function imageToScreen(ix, iy) {
-    return {
-        x: ix * scale + offsetX,
-        y: iy * scale + offsetY
-    };
+
+// ======================
+// 繪製：圖片 + 計算後的十字
+// ======================
+function draw() {
+    ctx.clearRect(0, 0, cw, ch);
+    if (!img) return;
+
+    // 繪製圖片（拖動 & 縮放）
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0);
+    ctx.restore();
+
+    // 繪製「計算後」的十字線
+    ctx.strokeStyle = '#ff3333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, crossY);
+    ctx.lineTo(cw, crossY);
+    ctx.moveTo(crossX, 0);
+    ctx.lineTo(crossX, ch);
+    ctx.stroke();
 }
 
-// 滑鼠 / 觸控移動
-function onMove(e) {
-    const rect = canvas.getBoundingClientRect();
-    const sx = e.clientX - rect.left;
-    const sy = e.clientY - rect.top;
+// ======================
+// 觸控 / 滑鼠輸入
+// ======================
+function handleMove(e) {
+    // 1. 取得原始觸點
+    const clientX = e.clientX;
+    const clientY = e.clientY;
 
-    crossScreenX = sx;
-    crossScreenY = sy;
+    // 2. **計算映射** 得到最終十字位置（多觸屏拼接邏輯）
+    const pt = calcTouchPoint(clientX, clientY);
+    crossX = pt.x;
+    crossY = pt.y;
 
-    if (isDrag && img) {
-        offsetX += sx - lastX;
-        offsetY += sy - lastY;
+    // 拖動圖片
+    if (isDragging) {
+        offsetX += clientX - lastX;
+        offsetY += clientY - lastY;
     }
-    lastX = sx;
-    lastY = sy;
+    lastX = clientX;
+    lastY = clientY;
+
     draw();
 }
 
 // 滑鼠
-canvas.addEventListener('mousedown', e => { isDrag = true; lastX = e.clientX; lastY = e.clientY; });
-window.addEventListener('mousemove', onMove);
-window.addEventListener('mouseup', () => isDrag = false);
+canvas.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+window.addEventListener('mousemove', handleMove);
+window.addEventListener('mouseup', () => isDragging = false);
 
 // 觸屏
 canvas.addEventListener('touchstart', e => {
     e.preventDefault();
-    isDrag = true;
+    isDragging = true;
     const t = e.touches[0];
     lastX = t.clientX;
     lastY = t.clientY;
 });
 window.addEventListener('touchmove', e => {
     e.preventDefault();
-    onMove(e.touches[0]);
+    handleMove(e.touches[0]);
 });
-window.addEventListener('touchend', () => isDrag = false);
+window.addEventListener('touchend', () => isDragging = false);
 
 draw();
 </script>
