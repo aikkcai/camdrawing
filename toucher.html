@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全屏觸控映射 - 分割區定位</title>
+    <title>圖片不變形 - 全屏分割觸控映射</title>
     <style>
         * {
             margin: 0;
@@ -61,56 +61,52 @@ const zoneSelect = document.getElementById('zoneSelect');
 let cw, ch;
 let img = null;
 
-// ==== 分割數量 (可自行修改) ====
-const COLS = 3;  // 橫向幾份
-const ROWS = 2;  // 直向幾份
+// 圖片顯示參數（保持比例不變形）
+let imgX = 0, imgY = 0, imgW = 0, imgH = 0;
+
+// 分割數
+const COLS = 3;
+const ROWS = 2;
 
 let zones = [];
 let selectedZone = 0;
-
-// 全屏觸控點
-let fullScreenX = 0;
-let fullScreenY = 0;
+let fullScreenX = 0, fullScreenY = 0;
 
 // 初始化畫布
 function resizeCanvas() {
     cw = canvas.width = window.innerWidth;
     ch = canvas.height = window.innerHeight - 56;
     createZones();
+    updateImagePosition();
     draw();
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
-// 建立分割區
+// 建立分割區（依據整個畫布）
 function createZones() {
     zones = [];
     const zoneW = cw / COLS;
     const zoneH = ch / ROWS;
-
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             zones.push({
-                x: c * zoneW,
-                y: r * zoneH,
-                w: zoneW,
-                h: zoneH,
-                cx: c * zoneW + zoneW / 2,
-                cy: r * zoneH + zoneH / 2,
-                index: zones.length
+                x: c * zoneW, y: r * zoneH,
+                w: zoneW, h: zoneH,
+                cx: c * zoneW + zoneW/2,
+                cy: r * zoneH + zoneH/2
             });
         }
     }
     initSelect();
 }
 
-// 初始化下拉選單
 function initSelect() {
     zoneSelect.innerHTML = '';
-    zones.forEach((z, i) => {
+    zones.forEach((z,i) => {
         const opt = document.createElement('option');
         opt.value = i;
-        opt.textContent = `分割區 ${i + 1}`;
+        opt.textContent = `分割區 ${i+1}`;
         zoneSelect.appendChild(opt);
     });
 }
@@ -123,97 +119,89 @@ fileInput.onchange = (e) => {
     const image = new Image();
     image.onload = () => {
         img = image;
+        updateImagePosition();
         draw();
     };
     image.src = URL.createObjectURL(f);
 };
 
-// 切換選擇分割區
+// 圖片等比例居中，不變形
+function updateImagePosition() {
+    if (!img) return;
+    const ratio = Math.min(cw / img.width, ch / img.height);
+    imgW = img.width * ratio;
+    imgH = img.height * ratio;
+    imgX = (cw - imgW) / 2;
+    imgY = (ch - imgH) / 2;
+}
+
+// 選擇區域
 zoneSelect.onchange = () => {
     selectedZone = parseInt(zoneSelect.value);
     draw();
 };
 
-// 繪製畫面
+// 繪製
 function draw() {
     ctx.clearRect(0, 0, cw, ch);
     if (!img) return;
 
-    // 繪製圖片（始終滿屏）
-    ctx.drawImage(img, 0, 0, cw, ch);
+    // 繪製圖片（不變形 + 黑邊）
+    ctx.drawImage(img, imgX, imgY, imgW, imgH);
 
     // 繪製紅色分割線
     ctx.strokeStyle = '#ff0000';
     ctx.lineWidth = 2;
-    ctx.strokeRect(0, 0, cw, ch);
+    ctx.strokeRect(0,0,cw,ch);
 
-    // 垂直分隔線
-    for (let i = 1; i < COLS; i++) {
-        const x = (cw / COLS) * i;
+    for (let i=1; i<COLS; i++) {
+        const x = (cw/COLS)*i;
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, ch);
+        ctx.moveTo(x,0); ctx.lineTo(x,ch);
         ctx.stroke();
     }
-    // 水平分隔線
-    for (let i = 1; i < ROWS; i++) {
-        const y = (ch / ROWS) * i;
+    for (let i=1; i<ROWS; i++) {
+        const y = (ch/ROWS)*i;
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(cw, y);
+        ctx.moveTo(0,y); ctx.lineTo(cw,y);
         ctx.stroke();
     }
 
-    // 繪製中央編號
+    // 編號
     ctx.fillStyle = '#ff0000';
     ctx.font = 'bold 32px Arial';
     ctx.textAlign = 'center';
-    zones.forEach(z => {
-        ctx.fillText(z.index + 1, z.cx, z.cy);
+    zones.forEach((z,i) => {
+        ctx.fillText(i+1, z.cx, z.cy);
     });
 
-    // ==============================================
-    // 核心：全屏觸點 → 映射到「所選分割區」內的十字線
-    // ==============================================
+    // 觸控點 全屏比例 → 映射到選中區域
     const z = zones[selectedZone];
-    if (!z) return;
-
-    // 計算全屏觸點的【比例】
     const ratioX = fullScreenX / cw;
     const ratioY = fullScreenY / ch;
+    const lx = z.x + ratioX * z.w;
+    const ly = z.y + ratioY * z.h;
 
-    // 把比例映射到「單一分割區」內
-    const localX = z.x + ratioX * z.w;
-    const localY = z.y + ratioY * z.h;
-
-    // 繪製紅色十字
     ctx.strokeStyle = '#ff0000';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(z.x, localY);
-    ctx.lineTo(z.x + z.w, localY);
-    ctx.moveTo(localX, z.y);
-    ctx.lineTo(localX, z.y + z.h);
+    ctx.moveTo(z.x, ly); ctx.lineTo(z.x+z.w, ly);
+    ctx.moveTo(lx, z.y); ctx.lineTo(lx, z.y+z.h);
     ctx.stroke();
 }
 
-// ==============================================
-// 監控觸控 / 滑鼠（整個螢幕）
-// ==============================================
-function updateTouchPoint(e) {
+// 觸控 / 滑鼠
+function updateTouch(e) {
     const rect = canvas.getBoundingClientRect();
     fullScreenX = e.clientX - rect.left;
     fullScreenY = e.clientY - rect.top;
     draw();
 }
 
-// 滑鼠移動
-window.addEventListener('mousemove', updateTouchPoint);
-
-// 觸屏移動
+window.addEventListener('mousemove', updateTouch);
 window.addEventListener('touchmove', (e) => {
     e.preventDefault();
-    updateTouchPoint(e.touches[0]);
+    updateTouch(e.touches[0]);
 });
 </script>
 </body>
