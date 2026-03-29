@@ -1,266 +1,180 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>紅外觸屏十字定位 + 圖片編輯</title>
+    <title>紅外觸屏 - 圖片精準十字定位</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
             font-family: Arial, sans-serif;
-            user-select: none;
         }
-
         body {
-            background: #1a1a1a;
-            overflow: hidden;
-            width: 100vw;
-            height: 100vh;
+            background: #222;
             display: flex;
             flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
         }
-
-        /* 頂部工具欄 */
-        .toolbar {
-            background: #2d2d2d;
-            padding: 10px 20px;
+        .bar {
+            background: #333;
+            padding: 10px;
             display: flex;
-            gap: 10px;
-            align-items: center;
-            color: white;
+            gap: 8px;
         }
-
         button {
-            padding: 8px 16px;
+            padding: 8px 12px;
+            background: #09f;
+            color: #fff;
             border: none;
             border-radius: 4px;
-            background: #4285F4;
-            color: white;
-            font-size: 16px;
             cursor: pointer;
         }
-
-        button:hover {
-            background: #3367D6;
-        }
-
-        #fileInput {
-            display: none;
-        }
-
-        /* Canvas 滿屏等比 */
+        #fileInput { display: none; }
         #canvas {
             flex: 1;
-            width: 100%;
-            height: calc(100vh - 60px);
             background: #000;
-            cursor: grab;
-        }
-
-        #canvas:active {
-            cursor: grabbing;
+            display: block;
         }
     </style>
 </head>
-
 <body>
-    <div class="toolbar">
-        <button id="uploadBtn">選擇圖片</button>
+    <div class="bar">
+        <button id="upload">載入圖片</button>
         <button id="zoomIn">放大 +</button>
         <button id="zoomOut">縮小 -</button>
         <input type="file" id="fileInput" accept="image/*">
     </div>
-
     <canvas id="canvas"></canvas>
 
-    <script>
-        // ==== 初始化 Canvas ====
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        let canvasW, canvasH;
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let cw, ch;
 
-        // 觸點座標（十字線用）
-        let touchX = 0;
-        let touchY = 0;
-        let showCross = false;
+// 圖片狀態
+let img = null;
+let scale = 1;
+let offsetX = 0;
+let offsetY = 0;
 
-        // 圖片相關
-        let img = null;
-        let imgLoaded = false;
-        let scale = 1;        // 縮放
-        let offsetX = 0;      // 拖動 X
-        let offsetY = 0;      // 拖動 Y
+// 觸摸 / 滑鼠
+let isDrag = false;
+let lastX, lastY;
+let crossScreenX = 0, crossScreenY = 0;
 
-        // 鼠標/觸控狀態
-        let isDragging = false;
-        let lastX, lastY;
+// 視窗大小
+function resize() {
+    cw = canvas.width = window.innerWidth;
+    ch = canvas.height = window.innerHeight - 50;
+    draw();
+}
+resize();
+window.addEventListener('resize', resize);
 
-        // ==== 畫布自適應滿屏 ====
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight - 60;
-            canvasW = canvas.width;
-            canvasH = canvas.height;
-            draw();
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+// 上傳圖片
+document.getElementById('upload').onclick = () => fileInput.click();
+fileInput.onchange = e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const im = new Image();
+    im.onload = () => {
+        img = im;
+        scale = 1;
+        offsetX = (cw - img.width) / 2;
+        offsetY = (ch - img.height) / 2;
+        draw();
+    };
+    im.src = URL.createObjectURL(f);
+};
 
-        // ==============================================
-        // 核心：繪製（圖片 + 十字線）
-        // ==============================================
-        function draw() {
-            ctx.clearRect(0, 0, canvasW, canvasH);
+// 放大縮小
+document.getElementById('zoomIn').onclick = () => { scale *= 1.1; draw(); };
+document.getElementById('zoomOut').onclick = () => { scale /= 1.1; draw(); };
+window.addEventListener('keydown', e => {
+    if (e.key === '+') scale *= 1.1;
+    if (e.key === '-') scale /= 1.1;
+    draw();
+});
 
-            // 1. 繪製圖片（可拖動、可縮放）
-            if (imgLoaded && img) {
-                ctx.save();
-                ctx.translate(offsetX, offsetY);
-                ctx.scale(scale, scale);
-                ctx.drawImage(img, 0, 0);
-                ctx.restore();
-            }
+// 畫圖
+function draw() {
+    ctx.clearRect(0, 0, cw, ch);
+    if (!img) return;
 
-            // 2. 繪製觸控十字線
-            if (showCross) {
-                ctx.strokeStyle = '#ff0000'; // 紅色十字
-                ctx.lineWidth = 2;
+    // 畫圖片
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0);
+    ctx.restore();
 
-                // 橫線
-                ctx.beginPath();
-                ctx.moveTo(0, touchY);
-                ctx.lineTo(canvasW, touchY);
-                ctx.stroke();
+    // 畫十字線
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, crossScreenY);
+    ctx.lineTo(cw, crossScreenY);
+    ctx.moveTo(crossScreenX, 0);
+    ctx.lineTo(crossScreenX, ch);
+    ctx.stroke();
+}
 
-                // 豎線
-                ctx.beginPath();
-                ctx.moveTo(touchX, 0);
-                ctx.lineTo(touchX, canvasH);
-                ctx.stroke();
-            }
-        }
+// 螢幕座標 → 轉 → 圖片內部座標
+function screenToImage(sx, sy) {
+    return {
+        x: (sx - offsetX) / scale,
+        y: (sy - offsetY) / scale
+    };
+}
+// 圖片內部座標 → 轉 → 螢幕座標
+function imageToScreen(ix, iy) {
+    return {
+        x: ix * scale + offsetX,
+        y: iy * scale + offsetY
+    };
+}
 
-        // ==============================================
-        // 圖片上傳
-        // ==============================================
-        document.getElementById('uploadBtn').onclick = () => {
-            document.getElementById('fileInput').click();
-        };
+// 滑鼠 / 觸控移動
+function onMove(e) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
 
-        document.getElementById('fileInput').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+    crossScreenX = sx;
+    crossScreenY = sy;
 
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const image = new Image();
-                image.onload = () => {
-                    img = image;
-                    imgLoaded = true;
-                    // 重置位置與縮放
-                    scale = 1;
-                    offsetX = (canvasW - img.width) / 2;
-                    offsetY = (canvasH - img.height) / 2;
-                    draw();
-                };
-                image.src = ev.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
+    if (isDrag && img) {
+        offsetX += sx - lastX;
+        offsetY += sy - lastY;
+    }
+    lastX = sx;
+    lastY = sy;
+    draw();
+}
 
-        // ==============================================
-        // 放大 / 縮小
-        // ==============================================
-        document.getElementById('zoomIn').onclick = () => {
-            scale *= 1.1;
-            draw();
-        };
+// 滑鼠
+canvas.addEventListener('mousedown', e => { isDrag = true; lastX = e.clientX; lastY = e.clientY; });
+window.addEventListener('mousemove', onMove);
+window.addEventListener('mouseup', () => isDrag = false);
 
-        document.getElementById('zoomOut').onclick = () => {
-            scale /= 1.1;
-            draw();
-        };
+// 觸屏
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    isDrag = true;
+    const t = e.touches[0];
+    lastX = t.clientX;
+    lastY = t.clientY;
+});
+window.addEventListener('touchmove', e => {
+    e.preventDefault();
+    onMove(e.touches[0]);
+});
+window.addEventListener('touchend', () => isDrag = false);
 
-        // 鍵盤 + - 快捷鍵
-        window.addEventListener('keydown', (e) => {
-            if (e.key === '+' || e.key === '=') scale *= 1.1;
-            if (e.key === '-' || e.key === '_') scale /= 1.1;
-            draw();
-        });
-
-        // ==============================================
-        // 鼠標 / 紅外觸屏 拖動圖片
-        // ==============================================
-        canvas.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            lastX = e.clientX;
-            lastY = e.clientY;
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            // 更新十字線位置
-            touchX = e.clientX;
-            touchY = e.clientY - 60; // 減去工具欄高度
-            showCross = true;
-
-            // 拖動邏輯
-            if (isDragging && imgLoaded) {
-                const dx = e.clientX - lastX;
-                const dy = e.clientY - lastY;
-                offsetX += dx;
-                offsetY += dy;
-                lastX = e.clientX;
-                lastY = e.clientY;
-            }
-            draw();
-        });
-
-        window.addEventListener('mouseup', () => {
-            isDragging = false;
-        });
-
-        // 離開畫布隱藏十字（可選）
-        canvas.addEventListener('mouseleave', () => {
-            showCross = false;
-            draw();
-        });
-
-        // ==============================================
-        // 紅外觸屏支持（touch 事件）
-        // ==============================================
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            isDragging = true;
-            lastX = touch.clientX;
-            lastY = touch.clientY;
-        });
-
-        window.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            // 更新十字線
-            touchX = touch.clientX;
-            touchY = touch.clientY - 60;
-            showCross = true;
-
-            // 拖動
-            if (isDragging && imgLoaded) {
-                const dx = touch.clientX - lastX;
-                const dy = touch.clientY - lastY;
-                offsetX += dx;
-                offsetY += dy;
-                lastX = touch.clientX;
-                lastY = touch.clientY;
-            }
-            draw();
-        });
-
-        window.addEventListener('touchend', () => {
-            isDragging = false;
-        });
-    </script>
+draw();
+</script>
 </body>
 </html>
