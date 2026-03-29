@@ -47,10 +47,24 @@
             background: #000;
             display: block;
         }
+
+        /* 全屏退出按鈕（預設隱藏） */
+        #exitFullscreen {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,0,0,0.8);
+            color: white;
+            font-size: 18px;
+            padding: 12px 24px;
+            z-index: 9999;
+            display: none;
+        }
     </style>
 </head>
 <body>
-    <div class="toolbar">
+    <div class="toolbar" id="toolbar">
         <button id="uploadBtn">上傳圖片</button>
         <button id="zoomOut">-</button>
         <button id="zoomIn">+</button>
@@ -61,9 +75,14 @@
         <button id="btnLeft">←</button>
         <button id="btnRight">→</button>
 
+        <button id="fullscreenBtn">全屏</button>
+
         <select id="zoneSelect"></select>
         <input type="file" id="fileInput" accept="image/*">
     </div>
+
+    <button id="exitFullscreen">退出全屏</button>
+
     <canvas id="canvas"></canvas>
 
 <script>
@@ -79,12 +98,16 @@ const btnDown = document.getElementById('btnDown');
 const btnLeft = document.getElementById('btnLeft');
 const btnRight = document.getElementById('btnRight');
 
+const toolbar = document.getElementById('toolbar');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+const exitFullscreen = document.getElementById('exitFullscreen');
+
 let cw, ch;
 let img = null;
 
 let imgX = 0, imgY = 0, imgW = 0, imgH = 0;
 let zoom = 1;
-let moveSpeed = 20; // 按一下移動距離
+let moveSpeed = 20;
 
 const COLS = 3;
 const ROWS = 2;
@@ -96,7 +119,7 @@ let fullScreenX = 0, fullScreenY = 0;
 // 初始化畫布
 function resizeCanvas() {
     cw = canvas.width = window.innerWidth;
-    ch = canvas.height = window.innerHeight - 56;
+    ch = canvas.height = window.innerHeight - (toolbar.style.display === 'none' ? 0 : 56);
     createZones();
     updateImagePosition();
     draw();
@@ -196,6 +219,21 @@ window.addEventListener('keydown', (e) => {
     }
     draw();
 });
+
+// ======================
+// 全屏 / 退出 功能
+// ======================
+fullscreenBtn.onclick = () => {
+    toolbar.style.display = 'none';
+    exitFullscreen.style.display = 'block';
+    resizeCanvas();
+};
+
+exitFullscreen.onclick = () => {
+    toolbar.style.display = 'flex';
+    exitFullscreen.style.display = 'none';
+    resizeCanvas();
+};
 
 // 繪製
 function draw() {
