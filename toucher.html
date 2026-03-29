@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>多觸屏拼接 - 映射計算十字線</title>
+    <title>圖片分割觸控定位</title>
     <style>
         * {
             margin: 0;
@@ -12,27 +12,34 @@
             font-family: Arial, sans-serif;
         }
         body {
-            background: #111;
+            background: #1a1a1a;
             display: flex;
             flex-direction: column;
             height: 100vh;
             overflow: hidden;
+            color: white;
         }
         .toolbar {
-            background: #222;
-            padding: 10px;
+            background: #2d2d2d;
+            padding: 12px 20px;
             display: flex;
-            gap: 8px;
+            gap: 12px;
+            align-items: center;
+        }
+        button, select {
+            padding: 8px 14px;
+            border-radius: 4px;
+            border: none;
+            font-size: 15px;
         }
         button {
-            padding: 8px 14px;
             background: #0099ff;
             color: white;
-            border: none;
-            border-radius: 4px;
             cursor: pointer;
         }
-        #fileInput { display: none; }
+        #fileInput {
+            display: none;
+        }
         #canvas {
             flex: 1;
             background: #000;
@@ -42,9 +49,10 @@
 </head>
 <body>
     <div class="toolbar">
-        <button id="btnUpload">載入圖片1.0</button>
-        <button id="btnZoomIn">放大 +</button>
-        <button id="btnZoomOut">縮小 -</button>
+        <button id="uploadBtn">上傳圖片</button>
+        <select id="zoneSelect">
+            <option value="1">區域 1</option>
+        </select>
         <input type="file" id="fileInput" accept="image/*">
     </div>
     <canvas id="canvas"></canvas>
@@ -52,160 +60,163 @@
 <script>
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
+const zoneSelect = document.getElementById('zoneSelect');
+
 let cw, ch;
-
-// 圖片與操作
 let img = null;
-let scale = 1;
-let offsetX = 0;
-let offsetY = 0;
-let isDragging = false;
-let lastX, lastY;
 
-// 觸點：最終計算出來的十字交點
-let crossX = 0;
-let crossY = 0;
+// 分割設定：依照螢幕比例分割
+const COLS = 3;   // 橫向3區
+const ROWS = 2;   // 直向2區
+let zones = [];
+let selectedZone = 0;
 
-// ======================
-// 畫布適應螢幕
-// ======================
-function resizeCanvas() {
+let touchX = 0, touchY = 0;
+let showCross = false;
+
+// 畫布滿屏
+function resize() {
     cw = canvas.width = window.innerWidth;
-    ch = canvas.height = window.innerHeight - 50;
+    ch = canvas.height = window.innerHeight - 55;
+    createZones();
     draw();
 }
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
+resize();
+window.addEventListener('resize', resize);
 
-// ======================
-// 圖片上傳
-// ======================
-btnUpload.onclick = () => fileInput.click();
+// 建立所有分割區域
+function createZones() {
+    zones = [];
+    const w = cw / COLS;
+    const h = ch / ROWS;
+
+    for (let r=0; r<ROWS; r++) {
+        for (let c=0; c<COLS; c++) {
+            zones.push({
+                x: c * w,
+                y: r * h,
+                w: w,
+                h: h,
+                cx: c * w + w/2,
+                cy: r * h + h/2,
+                index: zones.length
+            });
+        }
+    }
+}
+
+// 上傳圖片
+uploadBtn.onclick = () => fileInput.click();
 fileInput.onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const f = e.target.files[0];
+    if (!f) return;
     const im = new Image();
     im.onload = () => {
         img = im;
-        scale = 1;
-        offsetX = (cw - img.width) / 2;
-        offsetY = (ch - img.height) / 2;
         draw();
     };
-    im.src = URL.createObjectURL(file);
+    im.src = URL.createObjectURL(f);
 };
 
-// ======================
-// 放大 / 縮小
-// ======================
-btnZoomIn.onclick = () => { scale *= 1.1; draw(); }
-btnZoomOut.onclick = () => { scale /= 1.1; draw(); }
-window.addEventListener('keydown', e => {
-    if (e.key === '+' || e.key === '=') scale *= 1.1;
-    if (e.key === '-' || e.key === '_') scale /= 1.1;
+// 選擇區域
+zoneSelect.onchange = () => {
+    selectedZone = parseInt(zoneSelect.value);
     draw();
-});
+};
 
-// ======================
-// 核心：映射計算
-// ======================
-// 模擬：多塊紅外觸屏 → 計算出「邏輯大畫面」的座標
-function calcTouchPoint(touchClientX, touchClientY) {
-    const rect = canvas.getBoundingClientRect();
-    // 1. 先拿到當前螢幕相對 Canvas 的位置
-    let sx = touchClientX - rect.left;
-    let sy = touchClientY - rect.top;
-
-    // ======================
-    // 你真正的計算寫在這裡
-    // 多塊觸屏拼接 → 映射到大畫面 Canvas
-    // ======================
-    // 示例：簡單映射（你可改成你的拼接算法）
-    let mappedX = sx;
-    let mappedY = sy;
-
-    return { x: mappedX, y: mappedY };
-}
-
-// ======================
-// 螢幕 → 圖片座標轉換
-// ======================
-function screenToImage(sx, sy) {
-    return {
-        x: (sx - offsetX) / scale,
-        y: (sy - offsetY) / scale
-    };
-}
-
-// ======================
-// 繪製：圖片 + 計算後的十字
-// ======================
+// 繪製
 function draw() {
-    ctx.clearRect(0, 0, cw, ch);
+    ctx.clearRect(0,0,cw,ch);
     if (!img) return;
 
-    // 繪製圖片（拖動 & 縮放）
-    ctx.save();
-    ctx.translate(offsetX, offsetY);
-    ctx.scale(scale, scale);
-    ctx.drawImage(img, 0, 0);
-    ctx.restore();
+    // 繪製圖片（滿屏等比）
+    ctx.drawImage(img, 0,0,cw,ch);
 
-    // 繪製「計算後」的十字線
-    ctx.strokeStyle = '#ff3333';
+    // 繪製紅色分割線
+    ctx.strokeStyle = '#ff0000';
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, crossY);
-    ctx.lineTo(cw, crossY);
-    ctx.moveTo(crossX, 0);
-    ctx.lineTo(crossX, ch);
-    ctx.stroke();
+    ctx.strokeRect(0,0,cw,ch);
+
+    // 直向分割線
+    for (let i=1; i<COLS; i++) {
+        const x = (cw/COLS)*i;
+        ctx.beginPath();
+        ctx.moveTo(x,0);
+        ctx.lineTo(x,ch);
+        ctx.stroke();
+    }
+    // 橫向分割線
+    for (let i=1; i<ROWS; i++) {
+        const y = (ch/ROWS)*i;
+        ctx.beginPath();
+        ctx.moveTo(0,y);
+        ctx.lineTo(cw,y);
+        ctx.stroke();
+    }
+
+    // 繪製中央編號
+    ctx.fillStyle = '#ff0000';
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'center';
+    zones.forEach(z => {
+        ctx.fillText(z.index+1, z.cx, z.cy);
+    });
+
+    // 在所選區域畫十字
+    if (showCross && zones[selectedZone]) {
+        const z = zones[selectedZone];
+        const rx = (touchX - z.x) / z.w;
+        const ry = (touchY - z.y) / z.h;
+
+        const fx = z.x + rx * z.w;
+        const fy = z.y + ry * z.h;
+
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(z.x, fy);
+        ctx.lineTo(z.x+z.w, fy);
+        ctx.moveTo(fx, z.y);
+        ctx.lineTo(fx, z.y+z.h);
+        ctx.stroke();
+    }
 }
 
-// ======================
-// 觸控 / 滑鼠輸入
-// ======================
-function handleMove(e) {
-    // 1. 取得原始觸點
-    const clientX = e.clientX;
-    const clientY = e.clientY;
-
-    // 2. **計算映射** 得到最終十字位置（多觸屏拼接邏輯）
-    const pt = calcTouchPoint(clientX, clientY);
-    crossX = pt.x;
-    crossY = pt.y;
-
-    // 拖動圖片
-    if (isDragging) {
-        offsetX += clientX - lastX;
-        offsetY += clientY - lastY;
-    }
-    lastX = clientX;
-    lastY = clientY;
-
+// 觸控 / 滑鼠
+function updateTouch(e) {
+    const rect = canvas.getBoundingClientRect();
+    touchX = e.clientX - rect.left;
+    touchY = e.clientY - rect.top;
+    showCross = true;
     draw();
 }
 
 // 滑鼠
-canvas.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
-window.addEventListener('mousemove', handleMove);
-window.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mousemove', updateTouch);
 
 // 觸屏
-canvas.addEventListener('touchstart', e => {
+canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
-    isDragging = true;
-    const t = e.touches[0];
-    lastX = t.clientX;
-    lastY = t.clientY;
+    updateTouch(e.touches[0]);
 });
-window.addEventListener('touchmove', e => {
-    e.preventDefault();
-    handleMove(e.touches[0]);
-});
-window.addEventListener('touchend', () => isDragging = false);
 
-draw();
+// 初始化選單
+function initSelect() {
+    zoneSelect.innerHTML = '';
+    zones.forEach(z => {
+        const opt = document.createElement('option');
+        opt.value = z.index;
+        opt.textContent = `區域 ${z.index+1}`;
+        zoneSelect.appendChild(opt);
+    });
+}
+
+// 啟動
+setTimeout(() => {
+    createZones();
+    initSelect();
+    draw();
+}, 100);
 </script>
 </body>
 </html>
