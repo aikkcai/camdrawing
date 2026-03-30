@@ -182,7 +182,7 @@
             <div id="controlPanel" class="control-panel">
                 <div class="flex flex-wrap gap-2">
                     <label for="imageUpload" class="btn btn-primary">
-                        <i class="fa fa-upload"></i> 上传图片
+                        <i class="fa fa-upload"></i> 上传
                     </label>
                     <input type="file" id="imageUpload" accept="image/*" class="hidden">
                     
@@ -275,24 +275,54 @@
             let isFloatVisible = false;
 
             // 拖动悬浮窗口
-            let isDragFloat = false;
-            let floatStartX, floatStartY;
+           // 拖动悬浮窗口（支持鼠标 + 触屏）
+let isDragFloat = false;
+let floatStartX, floatStartY;
 
-            floatCanvasWrapper.addEventListener('mousedown', e => {
-                isDragFloat = true;
-                floatStartX = e.clientX - floatCanvasWrapper.getBoundingClientRect().left;
-                floatStartY = e.clientY - floatCanvasWrapper.getBoundingClientRect().top;
-            });
+// 鼠标开始拖动
+floatCanvasWrapper.addEventListener('mousedown', e => {
+    isDragFloat = true;
+    const rect = floatCanvasWrapper.getBoundingClientRect();
+    floatStartX = e.clientX - rect.left;
+    floatStartY = e.clientY - rect.top;
+});
 
-            document.addEventListener('mousemove', e => {
-                if (!isDragFloat) return;
-                floatCanvasWrapper.style.left = (e.clientX - floatStartX) + 'px';
-                floatCanvasWrapper.style.top = (e.clientY - floatStartY) + 'px';
-            });
+// 触屏开始拖动
+floatCanvasWrapper.addEventListener('touchstart', e => {
+    isDragFloat = true;
+    const rect = floatCanvasWrapper.getBoundingClientRect();
+    const touch = e.touches[0];
+    floatStartX = touch.clientX - rect.left;
+    floatStartY = touch.clientY - rect.top;
+    e.preventDefault(); // 防止页面滚动干扰
+});
 
-            document.addEventListener('mouseup', () => {
-                isDragFloat = false;
-            });
+// 鼠标/触屏 移动中
+function handleFloatMove(e) {
+    if (!isDragFloat) return;
+    let clientX, clientY;
+    if (e.type === 'mousemove') {
+        clientX = e.clientX;
+        clientY = e.clientY;
+    } else if (e.type === 'touchmove') {
+        e.preventDefault();
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+    }
+    floatCanvasWrapper.style.left = (clientX - floatStartX) + 'px';
+    floatCanvasWrapper.style.top = (clientY - floatStartY) + 'px';
+}
+
+document.addEventListener('mousemove', handleFloatMove);
+document.addEventListener('touchmove', handleFloatMove, { passive: false });
+
+// 鼠标/触屏 结束拖动
+function stopFloatDrag() {
+    isDragFloat = false;
+}
+
+document.addEventListener('mouseup', stopFloatDrag);
+document.addEventListener('touchend', stopFloatDrag);
 
             // + - 键控制悬浮画布缩放
             document.addEventListener('keydown', e => {
