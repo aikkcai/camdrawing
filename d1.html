@@ -182,11 +182,13 @@
             <div id="controlPanel" class="control-panel">
                 <div class="flex flex-wrap gap-2">
                     <label for="imageUpload" class="btn btn-primary">
-                        <i class="fa fa-upload"></i> 上传
+                        <i class="fa fa-upload"></i> 上載
                     </label>
                     <input type="file" id="imageUpload" accept="image/*" class="hidden">
                     
-             
+                    <button id="resetBtn" class="btn btn-outline">
+                        <i class="fa fa-refresh"></i> 重置
+                    </button>
                     
                     <button id="lockBtn" class="btn btn-accent locked">
                         <i class="fa fa-lock lock-icon"></i> <span>解锁</span>
@@ -425,6 +427,7 @@
             function loadImage(img) {
                 isSaveCurrent = false;
                 image = img;
+                resizeCanvas();
                 resetView();
                 dropZone.classList.add('hidden');
                 canvas.classList.remove('hidden');
@@ -442,14 +445,14 @@
             }
 			
 			function cScale(){
-			scale = 1;
-			  while (image.width * scale > canvas.width && scale > 0.01) {
-                scale -= 0.05;
-                 }
-			 while (image.height * scale > canvas.height && scale > 0.01) {
-                scale -= 0.05;
-                 }
-			}
+                scale = 1;
+                while (image.width * scale > canvas.width && scale > 0.01) {
+                    scale -= 0.05;
+                }
+                while (image.height * scale > canvas.height && scale > 0.01) {
+                    scale -= 0.05;
+                }
+            }
             
             function resetView() {
                 cScale();
@@ -534,7 +537,7 @@
 			
 			disSlider.addEventListener('click', function() {
 			 if (scale<=0.2) return;
-                  scale -= 0.1;		
+                scale -= 0.1;		
                 zoomSlider.value = scale;
                 updateZoomValue();
                 drawImage();
