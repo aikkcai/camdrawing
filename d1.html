@@ -200,16 +200,24 @@
 					</button>
                 </div>
                 
-                <div class="slider-container">
-                    <button id="disSlider" class="btn btn-outline">
-					<i class="fa fa-search-minus text-gray-200"></i>
-					 </button>
-                    <input type="range" id="zoomSlider" min="0.1" max="20" step="0.05" value="1" class="slider">
-       
-					<button id="inSlider" class="btn btn-outline">
-					<i class="fa fa-search-plus text-gray-200"></i>
-					 </button>
-                    <span id="zoomValue" class="text-sm font-medium text-gray-700 min-w-[9rem] text-center">100%</span>
+                <div class="flex flex-col gap-3 w-full max-w-md">
+                    <div class="slider-container">
+                        <button id="disSlider" class="btn btn-outline">
+                            <i class="fa fa-search-minus text-gray-200"></i>
+                        </button>
+                        <input type="range" id="zoomSlider" min="0.1" max="20" step="0.05" value="1" class="slider">
+                        <button id="inSlider" class="btn btn-outline">
+                            <i class="fa fa-search-plus text-gray-200"></i>
+                        </button>
+                        <span id="zoomValue" class="text-sm font-medium text-gray-700 min-w-[9rem] text-center">100%</span>
+                    </div>
+                    
+                    <!-- 悬浮画布缩放滑块 -->
+                    <div class="slider-container">
+                        <i class="fa fa-search text-primary"></i>
+                        <input type="range" id="floatZoomSlider" min="0.1" max="20" step="0.05" value="10" class="slider">
+                        <span id="floatZoomValue" class="text-sm font-medium text-primary min-w-[5rem] text-center">100%</span>
+                    </div>
                 </div>
             </div>
 
@@ -218,7 +226,7 @@
                 <div id="crosshairContainer" class="hidden absolute inset-0 z-20 pointer-events-none"></div>
                 <div class="absolute inset-0 flex items-center justify-center text-gray-400 text-lg" id="dropZone">
                     <div class="text-center">
-                        <i class="fa fa-cloud-upload text-4xl mb-2"></i>
+                        <i class="fa fa-cloud-upload text-4mb-2"></i>
                         <p>拖放图片到这里或点击上传按钮</p>
                     </div>
                 </div>
@@ -247,6 +255,8 @@
 			const toggleFloatBtn = document.getElementById('toggleFloatBtn');
 			const floatCanvasWrapper = document.getElementById('floatCanvasWrapper');
 			const floatCanvas = document.getElementById('floatCanvas');
+			const floatZoomSlider = document.getElementById('floatZoomSlider');
+			const floatZoomValue = document.getElementById('floatZoomValue');
 			
 			const inSlider = document.getElementById('inSlider');
 			const disSlider = document.getElementById('disSlider');
@@ -274,63 +284,78 @@
             let floatScale = 1.0;
             let isFloatVisible = false;
 
-            // 拖动悬浮窗口
-           // 拖动悬浮窗口（支持鼠标 + 触屏）
-let isDragFloat = false;
-let floatStartX, floatStartY;
+            // 拖动悬浮窗口（支持鼠标 + 触屏）
+            let isDragFloat = false;
+            let floatStartX, floatStartY;
 
-// 鼠标开始拖动
-floatCanvasWrapper.addEventListener('mousedown', e => {
-    isDragFloat = true;
-    const rect = floatCanvasWrapper.getBoundingClientRect();
-    floatStartX = e.clientX - rect.left;
-    floatStartY = e.clientY - rect.top;
-});
+            // 鼠标开始拖动
+            floatCanvasWrapper.addEventListener('mousedown', e => {
+                isDragFloat = true;
+                const rect = floatCanvasWrapper.getBoundingClientRect();
+                floatStartX = e.clientX - rect.left;
+                floatStartY = e.clientY - rect.top;
+            });
 
-// 触屏开始拖动
-floatCanvasWrapper.addEventListener('touchstart', e => {
-    isDragFloat = true;
-    const rect = floatCanvasWrapper.getBoundingClientRect();
-    const touch = e.touches[0];
-    floatStartX = touch.clientX - rect.left;
-    floatStartY = touch.clientY - rect.top;
-    e.preventDefault(); // 防止页面滚动干扰
-});
+            // 触屏开始拖动
+            floatCanvasWrapper.addEventListener('touchstart', e => {
+                isDragFloat = true;
+                const rect = floatCanvasWrapper.getBoundingClientRect();
+                const touch = e.touches[0];
+                floatStartX = touch.clientX - rect.left;
+                floatStartY = touch.clientY - rect.top;
+                e.preventDefault();
+            });
 
-// 鼠标/触屏 移动中
-function handleFloatMove(e) {
-    if (!isDragFloat) return;
-    let clientX, clientY;
-    if (e.type === 'mousemove') {
-        clientX = e.clientX;
-        clientY = e.clientY;
-    } else if (e.type === 'touchmove') {
-        e.preventDefault();
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-    }
-    floatCanvasWrapper.style.left = (clientX - floatStartX) + 'px';
-    floatCanvasWrapper.style.top = (clientY - floatStartY) + 'px';
-}
+            // 鼠标/触屏 移动中
+            function handleFloatMove(e) {
+                if (!isDragFloat) return;
+                let clientX, clientY;
+                if (e.type === 'mousemove') {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                } else if (e.type === 'touchmove') {
+                    e.preventDefault();
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                }
+                floatCanvasWrapper.style.left = (clientX - floatStartX) + 'px';
+                floatCanvasWrapper.style.top = (clientY - floatStartY) + 'px';
+            }
 
-document.addEventListener('mousemove', handleFloatMove);
-document.addEventListener('touchmove', handleFloatMove, { passive: false });
+            document.addEventListener('mousemove', handleFloatMove);
+            document.addEventListener('touchmove', handleFloatMove, { passive: false });
 
-// 鼠标/触屏 结束拖动
-function stopFloatDrag() {
-    isDragFloat = false;
-}
+            // 鼠标/触屏 结束拖动
+            function stopFloatDrag() {
+                isDragFloat = false;
+            }
 
-document.addEventListener('mouseup', stopFloatDrag);
-document.addEventListener('touchend', stopFloatDrag);
+            document.addEventListener('mouseup', stopFloatDrag);
+            document.addEventListener('touchend', stopFloatDrag);
 
-            // + - 键控制悬浮画布缩放
+            // 更新悬浮画布缩放显示
+            function updateFloatZoomValue() {
+                floatZoomValue.textContent = `${Math.round(floatScale * 100)}%`;
+            }
+
+            // 悬浮画布滑块控制
+            floatZoomSlider.addEventListener('input', function() {
+                floatScale = parseFloat(this.value);
+                updateFloatZoomValue();
+                updateFloatCanvas();
+            });
+
+            // + - 键 + 滑块 同步控制悬浮画布缩放
             document.addEventListener('keydown', e => {
                 if (e.key === '+' || e.key === '=') {
                     floatScale += 0.1;
+                    floatZoomSlider.value = floatScale;
+                    updateFloatZoomValue();
                     updateFloatCanvas();
                 } else if (e.key === '-' || e.key === '_') {
                     floatScale = Math.max(0.1, floatScale - 0.1);
+                    floatZoomSlider.value = floatScale;
+                    updateFloatZoomValue();
                     updateFloatCanvas();
                 }
             });
@@ -707,6 +732,7 @@ document.addEventListener('touchend', stopFloatDrag);
             });
             
             window.addEventListener('resize', resizeCanvas);
+            updateFloatZoomValue();
             resizeCanvas();
         });
     </script>
