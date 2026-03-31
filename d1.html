@@ -673,28 +673,29 @@
             canvas.addEventListener('mouseup', function() { isDragging = false; });
             canvas.addEventListener('mouseleave', function() { isDragging = false; });
             
-            canvas.addEventListener('touchstart', function(e) {
-                if (isLocked) {
-                    const rect = canvas.getBoundingClientRect();
-                    const touch = e.touches[0];
-                    const x = touch.clientX - rect.left;
-                    const y = touch.clientY - rect.top;
-                    addCrosshair(x, y);
-                } else {
-                    isDragging = true;
-                    lastX = e.touches[0].clientX - offsetX;
-                    lastY = e.touches[0].clientY - offsetY;
-                }
-            });
-            
-            canvas.addEventListener('touchmove', function(e) {
-                if (!isDragging || isLocked) return;
-                e.preventDefault();
-                offsetX = e.touches[0].clientX - lastX;
-                offsetY = e.touches[0].clientY - lastY;
-                drawImage();
-                updateFloatCanvas();
-            });
+canvas.addEventListener('touchstart', function(e) {
+  e.preventDefault(); // 关键：阻止浏览器默认触摸行为
+  if (isLocked) {
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    addCrosshair(x, y);
+  } else {
+    isDragging = true;
+    lastX = e.touches[0].clientX - offsetX;
+    lastY = e.touches[0].clientY - offsetY;
+  }
+});
+
+canvas.addEventListener('touchmove', function(e) {
+  e.preventDefault(); // 滑动时也阻止默认，避免滚动/缩放触发白点
+  if (!isDragging || isLocked) return;
+  offsetX = e.touches[0].clientX - lastX;
+  offsetY = e.touches[0].clientY - lastY;
+  drawImage();
+  updateFloatCanvas();
+});
             
             canvas.addEventListener('touchend', function() { isDragging = false; });
             
