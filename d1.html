@@ -23,110 +23,103 @@
             }
         }
     </script>
-    <style type="text/tailwindcss">
-        @layer utilities {
-            .content-auto {
-                content-visibility: auto;
-            }
-            .canvas-container {
-                @apply relative w-full h-[75vh] bg-gray-100 rounded-lg overflow-hidden shadow-lg border border-gray-200;
-            }
-            .control-panel {
-                @apply bg-white p-4 rounded-lg shadow-md flex flex-wrap gap-4 items-center justify-between mb-4 transition-all duration-300;
-            }
-            .btn {
-                @apply px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center gap-2;
-            }
-            .btn-primary {
-                @apply bg-primary text-white hover:bg-primary/90 active:bg-primary/80;
-            }
-            .btn-secondary {
-                @apply bg-secondary text-white hover:bg-secondary/90 active:bg-secondary/80;
-            }
-            .btn-accent {
-                @apply bg-accent text-white hover:bg-accent/90 active:bg-accent/80;
-            }
-            .btn-danger {
-                @apply bg-danger text-white hover:bg-danger/90 active:bg-danger/80;
-            }
-            .btn-outline {
-                @apply border border-gray-300 hover:bg-gray-100 active:bg-gray-200;
-            }
-            .slider-container {
-                @apply flex items-center gap-2 w-full max-w-md;
-            }
-            .slider {
-                @apply w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer;
-            }
-            .slider::-webkit-slider-thumb {
-                @apply appearance-none w-5 h-5 rounded-full bg-primary cursor-pointer;
-            }
-            .fullscreen {
-                @apply fixed inset-0 z-50 bg-black;
-            }
-            .lock-icon {
-                @apply transition-transform duration-300;
-            }
-            .locked .lock-icon {
-                @apply rotate-180;
-            }
-            .crosshair {
-                @apply absolute pointer-events-none z-10;
-            }
-            .crosshair-horizontal {
-                @apply h-[1px] w-full bg-red-200 absolute top-1/2 transform -translate-y-1/2;
-            }
-            .crosshair-vertical {
-                @apply w-[1px] h-full bg-red-200 absolute left-1/2 transform -translate-x-1/2;
-            }
-            .floating-lock-btn {
-                @apply fixed top-4 right-4 z-50 opacity-0 pointer-events-none transition-all duration-300;
-            }
-            .show-lock-btn {
-                @apply opacity-100 pointer-events-auto;
-            }
-			
-			  .content-auto {
-                content-visibility: auto;
-            }
-            .crosshair-line {
-                position: fixed;
-                pointer-events: none;
-                z-index: 50;
-                opacity: 0.5;
-                transition: opacity 0.2s ease;
-            }
-            .crosshair-horizontal {
-                height: 1px;
-                width: 100%;
-            }
-            .crosshair-vertical {
-                width: 1px;
-                height: 100%;
-            }
-            .fade-out {
-                opacity: 0;
-            }
-			
-			/* 新增：悬浮200x200画布 */
-			#floatCanvasWrapper {
-				position: fixed;
-				top: 50px;
-				left: 50px;
-				width: 200px;
-				height: 200px;
-				z-index: 9999;
-				border: 2px solid #4F46E5;
-				background: #000;
-				cursor: move;
-				display: none;
-			}
-			#floatCanvas {
-				width: 100%;
-				height: 100%;
-			}
-        }
-    </style>
+   <style type="text/tailwindcss">
+  @layer utilities {
+    .content-auto {
+      content-visibility: auto;
+    }
+    .canvas-container {
+      @apply relative w-full h-[75vh] bg-gray-100 rounded-lg overflow-hidden shadow-lg border border-gray-200;
+    }
+    .control-panel {
+      @apply bg-white p-4 rounded-lg shadow-md flex flex-wrap gap-4 items-center justify-between mb-4 transition-all duration-300;
+    }
+    .btn {
+      @apply px-4 py-2 rounded-md font-medium transition-all duration-200 flex items-center gap-2;
+    }
+    .btn-primary {
+      @apply bg-primary text-white hover:bg-primary/90 active:bg-primary/80;
+    }
+    .btn-secondary {
+      @apply bg-secondary text-white hover:bg-secondary/90 active:bg-secondary/80;
+    }
+    .btn-accent {
+      @apply bg-accent text-white hover:bg-accent/90 active:bg-accent/80;
+    }
+    .btn-danger {
+      @apply bg-danger text-white hover:bg-danger/90 active:bg-danger/80;
+    }
+    .btn-outline {
+      @apply border border-gray-300 hover:bg-gray-100 active:bg-gray-200;
+    }
+    .slider-container {
+      @apply flex items-center gap-2 w-full max-w-md;
+    }
+    .slider {
+      @apply w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer;
+    }
+    .slider::-webkit-slider-thumb {
+      @apply appearance-none w-5 h-5 rounded-full bg-primary cursor-pointer;
+    }
+    .fullscreen {
+      @apply fixed inset-0 z-50 bg-black;
+    }
+    .lock-icon {
+      @apply transition-transform duration-300;
+    }
+    .locked .lock-icon {
+      @apply rotate-180;
+    }
+    .crosshair {
+      @apply absolute pointer-events-none z-10;
+    }
+    .crosshair-horizontal {
+      @apply h-[1px] w-full bg-red-200 absolute top-1/2 transform -translate-y-1/2;
+    }
+    .crosshair-vertical {
+      @apply w-[1px] h-full bg-red-200 absolute left-1/2 transform -translate-x-1/2;
+    }
+    .floating-lock-btn {
+      @apply fixed top-4 right-4 z-50 opacity-0 pointer-events-none transition-all duration-300;
+    }
+    .show-lock-btn {
+      @apply opacity-100 pointer-events-auto;
+    }
+    
+    .content-auto {
+      content-visibility: auto;
+    }
+    .crosshair-line {
+      position: fixed;
+      pointer-events: none;
+      z-index: 50;
+      opacity: 0.5;
+      transition: opacity 0.2s ease;
+    }
+    .crosshair-horizontal {
+      height: 1px;
+      width: 100%;
+    }
+    .crosshair-vertical {
+      width: 1px;
+      height: 100%;
+    }
+    .fade-out {
+
+    }
+  }
+
+  /* 新增：全局消除触屏白点 */
+  * {
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-touch-callout: none !important;
+    user-select: none !important;
+    touch-action: manipulation !important;
+  }
+  canvas {
+    outline: none !important;
+  }
+</style>
 </head>
 <body class="bg-gray-50 font-sans"  oncontextmenu="return false">
 
