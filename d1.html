@@ -101,7 +101,6 @@
                 height: 100%;
             }
 
-            /* 悬浮画布样式（修复无限宽）*/
             #floatCanvasWrapper {
                 position: fixed;
                 top: 20px;
@@ -113,7 +112,6 @@
                 border-radius: 8px;
                 overflow: hidden;
                 background: #000;
-                /* 👇 关键：强制宽高，和内部canvas一致 */
                 width: 200px;
                 height: 200px;
             }
@@ -124,7 +122,6 @@
             }
         }
 
-        /* 全局彻底消除触屏白点 */
         * {
             -webkit-tap-highlight-color: transparent !important;
             -webkit-touch-callout: none !important;
@@ -146,11 +143,9 @@
 </head>
 <body class="bg-gray-50 font-sans" oncontextmenu="return false">
 
-    <!-- 十字线 -->
     <div id="horizontal-line" class="crosshair-line crosshair-horizontal bg-red-200"></div>
     <div id="vertical-line" class="crosshair-line crosshair-vertical bg-red-200"></div>
 
-    <!-- 悬浮画布 -->
     <div id="floatCanvasWrapper">
         <canvas id="floatCanvas"></canvas>
     </div>
@@ -269,14 +264,12 @@
             let isSaveCurrent = false;
             let oldscale = 1, oldoffsetX = 0, oldoffsetY = 0;
 
-            // 悬浮画布
             floatCanvas.width = 200;
             floatCanvas.height = 200;
             const fCtx = floatCanvas.getContext('2d');
-            let floatScale = 1.0;
+            let floatScale = 3.0;
             let isFloatVisible = false;
 
-            // 悬浮拖动
             let isDragFloat = false;
             let floatStartX = 0, floatStartY = 0;
 
@@ -322,19 +315,6 @@
                 floatScale = parseFloat(this.value);
                 updateFloatZoomValue();
                 updateFloatCanvas();
-            });
-            document.addEventListener('keydown', e => {
-                if (e.key === '+' || e.key === '=') {
-                    floatScale = Math.min(20, floatScale + 0.1);
-                    floatZoomSlider.value = floatScale;
-                    updateFloatZoomValue();
-                    updateFloatCanvas();
-                } else if (e.key === '-' || e.key === '_') {
-                    floatScale = Math.max(0.1, floatScale - 0.1);
-                    floatZoomSlider.value = floatScale;
-                    updateFloatZoomValue();
-                    updateFloatCanvas();
-                }
             });
 
             toggleFloatBtn.addEventListener('click', () => {
@@ -643,6 +623,49 @@
                 offsetX += (mx - nix) - (mx - ix) * (ns / scale);
                 offsetY += (my - niy) - (my - iy) * (ns / scale);
                 scale = ns;
+                zoomSlider.value = scale;
+                updateZoomValue();
+                drawImage();
+                updateFloatCanvas();
+            });
+
+            // ==============================
+            // 新增：鍵盤控制（上下左右 + I/O）
+            // ==============================
+            document.addEventListener('keydown', function (e) {
+                if (isLocked || !image) return;
+
+                const step = 5; // 移動速度
+
+                switch (e.key) {
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        offsetY -= step;
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        offsetY += step;
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        offsetX -= step;
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        offsetX += step;
+                        break;
+                    case 'i':
+                    case 'I':
+                        e.preventDefault();
+                        scale += 0.05;
+                        break;
+                    case 'o':
+                    case 'O':
+                        e.preventDefault();
+                        scale = Math.max(0.1, scale - 0.05);
+                        break;
+                }
+
                 zoomSlider.value = scale;
                 updateZoomValue();
                 drawImage();
