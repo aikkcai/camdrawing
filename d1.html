@@ -101,7 +101,7 @@
                 height: 100%;
             }
 
-            /* 悬浮画布样式（可拖动） */
+            /* 悬浮画布样式（修复无限宽）*/
             #floatCanvasWrapper {
                 position: fixed;
                 top: 20px;
@@ -113,6 +113,9 @@
                 border-radius: 8px;
                 overflow: hidden;
                 background: #000;
+                /* 👇 关键：强制宽高，和内部canvas一致 */
+                width: 200px;
+                height: 200px;
             }
             #floatCanvas {
                 display: block;
