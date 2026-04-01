@@ -19,7 +19,7 @@
                     fontFamily: {
                         sans: ['Inter', 'system-ui', 'sans-serif'],
                     },
-                }
+                },
             }
         }
     </script>
@@ -213,8 +213,7 @@
                     
                     <!-- 悬浮画布缩放滑块 -->
                     <div class="slider-container">
-                   
-                        <input type="range" id="floatZoomSlider" min="0.1" max="20" step="0.05" value="1" class="slider">
+                        <input type="range" id="floatZoomSlider" min="0.1" max="20" step="0.05" value="3" class="slider">
                         <span id="floatZoomValue" class="text-sm font-medium text-primary min-w-[5rem] text-center">300%</span>
                     </div>
                 </div>
@@ -275,12 +274,12 @@
             let oldoffsetY = 0;	
 
             // ========================
-            // 悬浮画布功能（完整修复版）
+            // 悬浮画布功能（默认300%）
             // ========================
             floatCanvas.width = 200;
             floatCanvas.height = 200;
             const fCtx = floatCanvas.getContext('2d');
-            let floatScale = 1.0;
+            let floatScale = 3.0; // ✅ 默认 300%
             let isFloatVisible = false;
 
             // 拖动悬浮窗口（支持鼠标 + 触屏）
@@ -422,7 +421,7 @@
             }
 
             // ==============================
-            // ✅ 全局键盘：同时控制 主画布 + 悬浮画布
+            // 全局键盘：同时控制 主画布 + 悬浮画布
             // ==============================
             document.addEventListener('keydown', e => {
                 // 防止在输入框里触发
