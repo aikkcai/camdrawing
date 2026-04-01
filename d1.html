@@ -217,29 +217,37 @@
                         <span id="floatZoomValue" class="text-sm font-medium text-primary min-w-[5rem] text-center">300%</span>
                     </div>
 					
-					<!-- 新增：图片色彩数量调节 -->
-					<div class="flex flex-wrap items-center gap-3 w-full">
-						<label class="text-sm font-medium text-gray-700">3. 調節圖片色彩數量：</label>
-						<select id="colorSlider1" class="px-2 py-1 border rounded text-sm">
-							<option value="30" selected>30 (默认)</option>
-							<option value="5">5</option>
-							<option value="10">10</option>
-							<option value="20">20</option>
-							<option value="60">60</option>
-							<option value="128">128</option>
-							<option value="256">256 (原图色)</option>
-							<option value="line_art">黑白线条画（透明背景）</option>
-						</select>
-						<span id="colorValue" class="text-sm text-primary font-medium">30</span>色
+<!-- 新增：图片色彩数量调节 -->
+<div class="flex items-center gap-2 flex-nowrap w-full">
+    <label class="text-sm font-medium text-gray-700 whitespace-nowrap">調節圖片：</label>
+    <select id="colorSlider1" class="px-2 py-1 border rounded text-sm whitespace-nowrap flex-shrink-0">
+        <option value="30" selected>30 (默认)</option>
+        <option value="5">5</option>
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="60">60</option>
+        <option value="128">128</option>
+        <option value="256">256 (原图色)</option>
+        <option value="line_art">黑白线条画</option>
+    </select>
+    <span id="colorValue" class="text-sm text-primary font-medium whitespace-nowrap flex-shrink-0">30</span>
+    <span class="text-sm whitespace-nowrap flex-shrink-0">色</span>
 
-						<!-- 线条画临界值滑块 -->
-						<div id="lineArtSliderContainer" class="hidden items-center gap-2 mt-1 w-full">
-							<label class="text-xs text-gray-600">线条画临界值：</label>
-							<input id="slider1" type="range" min="0" max="255" step="5" value="120" class="slider w-full">
-							<span id="thresholdValue" class="text-xs text-primary">120</span>
-						</div>
-					</div>
-                </div>
+    <!-- 线条画临界值 选择框 -->
+    <div id="lineArtSliderContainer" class="hidden items-center gap-2 whitespace-nowrap flex-shrink-0">
+        <label class="text-xs text-gray-600 whitespace-nowrap">临界值：</label>
+        <select id="thresholdSelect" class="px-2 py-1 border rounded text-xs whitespace-nowrap flex-shrink-0">
+            <option value="40">40 细密</option>
+            <option value="60">60 偏密</option>
+            <option value="80">80 偏密</option>
+            <option value="100">120 偏密</option>
+            <option value="120" selected>120 标准</option>
+            <option value="160">160 偏密</option>
+            <option value="200">200 粗密</option>
+        </select>
+        <span id="thresholdValue" class="text-xs text-primary whitespace-nowrap">120</span>
+    </div>
+</div>
             </div>
 
             <div id="canvasContainer" class="canvas-container">
@@ -283,7 +291,7 @@
 			const colorSlider1 = document.getElementById('colorSlider1');
 			const colorValue = document.getElementById('colorValue');
 			const lineArtSliderContainer = document.getElementById('lineArtSliderContainer');
-			const slider1 = document.getElementById('slider1');
+			const thresholdSelect = document.getElementById('thresholdSelect');
 			const thresholdValue = document.getElementById('thresholdValue');
 			
 			const inSlider = document.getElementById('inSlider');
@@ -529,8 +537,8 @@
 				}
 			});
 			
-			// 线条画临界值调节
-			slider1.addEventListener('input', function() {
+			// 线条画临界值 选择框
+			thresholdSelect.addEventListener('change', function() {
 				lineArtThreshold = Number(this.value);
 				thresholdValue.textContent = lineArtThreshold;
 				if (isLineArtMode && originalUploadedImage) {
@@ -552,61 +560,60 @@
 				updateFloatCanvas();
 			}
 			
-			// 线条画核心算法
-// 线条画核心算法（改为不透明白底）
-function createLineArt(canvas) {
-    const ctx = canvas.getContext('2d');
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const pixels = imageData.data;
-    const width = canvas.width;
-    const height = canvas.height;
+			// 线条画核心算法（不透明白底）
+			function createLineArt(canvas) {
+				const ctx = canvas.getContext('2d');
+				const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+				const pixels = imageData.data;
+				const width = canvas.width;
+				const height = canvas.height;
 
-    // 灰度处理
-    for (let i = 0; i < pixels.length; i += 4) {
-        const gray = 0.299 * pixels[i] + 0.587 * pixels[i+1] + 0.114 * pixels[i+2];
-        pixels[i] = pixels[i+1] = pixels[i+2] = gray;
-    }
+				// 灰度处理
+				for (let i = 0; i < pixels.length; i += 4) {
+					const gray = 0.299 * pixels[i] + 0.587 * pixels[i+1] + 0.114 * pixels[i+2];
+					pixels[i] = pixels[i+1] = pixels[i+2] = gray;
+				}
 
-    // Sobel边缘检测
-    const sobelData = ctx.createImageData(width, height);
-    const sobelPixels = sobelData.data;
-    const sobelX = [[-1,0,1],[-2,0,2],[-1,0,1]];
-    const sobelY = [[-1,-2,-1],[0,0,0],[1,2,1]];
+				// Sobel边缘检测
+				const sobelData = ctx.createImageData(width, height);
+				const sobelPixels = sobelData.data;
+				const sobelX = [[-1,0,1],[-2,0,2],[-1,0,1]];
+				const sobelY = [[-1,-2,-1],[0,0,0],[1,2,1]];
 
-    for (let y = 1; y < height-1; y++) {
-        for (let x = 1; x < width-1; x++) {
-            let gx = 0, gy = 0;
-            for (let ky = -1; ky <= 1; ky++) {
-                for (let kx = -1; kx <= 1; kx++) {
-                    const idx = ((y+ky)*width + (x+kx)) * 4;
-                    const gray = pixels[idx];
-                    gx += gray * sobelX[ky+1][kx+1];
-                    gy += gray * sobelY[ky+1][kx+1];
-                }
-            }
-            const mag = Math.sqrt(gx*gx + gy*gy);
-            const isEdge = mag > lineArtThreshold;
+				for (let y = 1; y < height-1; y++) {
+					for (let x = 1; x < width-1; x++) {
+						let gx = 0, gy = 0;
+						for (let ky = -1; ky <= 1; ky++) {
+							for (let kx = -1; kx <= 1; kx++) {
+								const idx = ((y+ky)*width + (x+kx)) * 4;
+								const gray = pixels[idx];
+								gx += gray * sobelX[ky+1][kx+1];
+								gy += gray * sobelY[ky+1][kx+1];
+							}
+						}
+						const mag = Math.sqrt(gx*gx + gy*gy);
+						const isEdge = mag > lineArtThreshold;
 
-            const idx = (y*width + x) * 4;
-            if (isEdge) {
-                // 黑色线条
-                sobelPixels[idx] = 0;
-                sobelPixels[idx+1] = 0;
-                sobelPixels[idx+2] = 0;
-                sobelPixels[idx+3] = 255;
-            } else {
-                // 白色背景（不透明）
-                sobelPixels[idx] = 255;
-                sobelPixels[idx+1] = 255;
-                sobelPixels[idx+2] = 255;
-                sobelPixels[idx+3] = 255;
-            }
-        }
-    }
+						const idx = (y*width + x) * 4;
+						if (isEdge) {
+							// 黑色线条
+							sobelPixels[idx] = 0;
+							sobelPixels[idx+1] = 0;
+							sobelPixels[idx+2] = 0;
+							sobelPixels[idx+3] = 255;
+						} else {
+							// 白色背景（不透明）
+							sobelPixels[idx] = 255;
+							sobelPixels[idx+1] = 255;
+							sobelPixels[idx+2] = 255;
+							sobelPixels[idx+3] = 255;
+						}
+					}
+				}
 
-    ctx.putImageData(sobelData, 0, 0);
-    return canvas;
-}
+				ctx.putImageData(sobelData, 0, 0);
+				return canvas;
+			}
 			
 			// 色彩量化渲染
 			function renderProcessedImage(img, colorCount) {
