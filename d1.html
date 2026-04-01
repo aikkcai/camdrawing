@@ -216,6 +216,29 @@
                         <input type="range" id="floatZoomSlider" min="0.1" max="20" step="0.05" value="3" class="slider">
                         <span id="floatZoomValue" class="text-sm font-medium text-primary min-w-[5rem] text-center">300%</span>
                     </div>
+					
+					<!-- 新增：图片色彩数量调节 -->
+					<div class="flex flex-wrap items-center gap-3 w-full">
+						<label class="text-sm font-medium text-gray-700">3. 調節圖片色彩數量：</label>
+						<select id="colorSlider1" class="px-2 py-1 border rounded text-sm">
+							<option value="30" selected>30 (默认)</option>
+							<option value="5">5</option>
+							<option value="10">10</option>
+							<option value="20">20</option>
+							<option value="60">60</option>
+							<option value="128">128</option>
+							<option value="256">256 (原图色)</option>
+							<option value="line_art">黑白线条画（透明背景）</option>
+						</select>
+						<span id="colorValue" class="text-sm text-primary font-medium">30</span>色
+
+						<!-- 线条画临界值滑块 -->
+						<div id="lineArtSliderContainer" class="hidden items-center gap-2 mt-1 w-full">
+							<label class="text-xs text-gray-600">线条画临界值：</label>
+							<input id="slider1" type="range" min="0" max="255" step="5" value="120" class="slider w-full">
+							<span id="thresholdValue" class="text-xs text-primary">120</span>
+						</div>
+					</div>
                 </div>
             </div>
 
@@ -256,6 +279,13 @@
 			const floatZoomSlider = document.getElementById('floatZoomSlider');
 			const floatZoomValue = document.getElementById('floatZoomValue');
 			
+			// 新增色彩处理元素
+			const colorSlider1 = document.getElementById('colorSlider1');
+			const colorValue = document.getElementById('colorValue');
+			const lineArtSliderContainer = document.getElementById('lineArtSliderContainer');
+			const slider1 = document.getElementById('slider1');
+			const thresholdValue = document.getElementById('thresholdValue');
+			
 			const inSlider = document.getElementById('inSlider');
 			const disSlider = document.getElementById('disSlider');
 			
@@ -271,7 +301,13 @@
 			let isSaveCurrent = false;
 		    let oldscale = 1;
             let oldoffsetX = 0;
-            let oldoffsetY = 0;	
+            let oldoffsetY = 0;
+			
+			// 新增：色彩处理全局变量
+			let originalUploadedImage = null;
+			let currentColorCount = 30;
+			let isLineArtMode = false;
+			let lineArtThreshold = 120;
 
             // ========================
             // 悬浮画布功能（默认300%）
@@ -466,6 +502,204 @@
                     updateFloatCanvas();
                 }
             });
+			
+			// ==============================
+			// 新增：图片色彩数量 & 线条画功能
+			// ==============================
+			// 色彩数量切换
+			colorSlider1.addEventListener('change', function() {
+				isLineArtMode = false;
+				const value = this.value;
+				
+				if (value === 'line_art') {
+					isLineArtMode = true;
+					colorValue.textContent = "线条画";
+					lineArtSliderContainer.classList.remove('hidden');
+					if (originalUploadedImage) {
+						renderLineArtImage(originalUploadedImage);
+					}
+				} else {
+					lineArtSliderContainer.classList.add('hidden');
+					const colorCount = Number(value) || 30;
+					colorValue.textContent = colorCount;
+					currentColorCount = colorCount;
+					if (originalUploadedImage) {
+						renderProcessedImage(originalUploadedImage, currentColorCount);
+					}
+				}
+			});
+			
+			// 线条画临界值调节
+			slider1.addEventListener('input', function() {
+				lineArtThreshold = Number(this.value);
+				thresholdValue.textContent = lineArtThreshold;
+				if (isLineArtMode && originalUploadedImage) {
+					renderLineArtImage(originalUploadedImage);
+				}
+			});
+			
+			// 渲染黑白线条画
+			function renderLineArtImage(img) {
+				const tempCanvas = document.createElement('canvas');
+				tempCanvas.width = img.width;
+				tempCanvas.height = img.height;
+				const tempCtx = tempCanvas.getContext('2d');
+				tempCtx.drawImage(img, 0, 0);
+				
+				const lineCanvas = createLineArt(tempCanvas);
+				image = lineCanvas;
+				drawImage();
+				updateFloatCanvas();
+			}
+			
+			// 线条画核心算法
+// 线条画核心算法（改为不透明白底）
+function createLineArt(canvas) {
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = imageData.data;
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // 灰度处理
+    for (let i = 0; i < pixels.length; i += 4) {
+        const gray = 0.299 * pixels[i] + 0.587 * pixels[i+1] + 0.114 * pixels[i+2];
+        pixels[i] = pixels[i+1] = pixels[i+2] = gray;
+    }
+
+    // Sobel边缘检测
+    const sobelData = ctx.createImageData(width, height);
+    const sobelPixels = sobelData.data;
+    const sobelX = [[-1,0,1],[-2,0,2],[-1,0,1]];
+    const sobelY = [[-1,-2,-1],[0,0,0],[1,2,1]];
+
+    for (let y = 1; y < height-1; y++) {
+        for (let x = 1; x < width-1; x++) {
+            let gx = 0, gy = 0;
+            for (let ky = -1; ky <= 1; ky++) {
+                for (let kx = -1; kx <= 1; kx++) {
+                    const idx = ((y+ky)*width + (x+kx)) * 4;
+                    const gray = pixels[idx];
+                    gx += gray * sobelX[ky+1][kx+1];
+                    gy += gray * sobelY[ky+1][kx+1];
+                }
+            }
+            const mag = Math.sqrt(gx*gx + gy*gy);
+            const isEdge = mag > lineArtThreshold;
+
+            const idx = (y*width + x) * 4;
+            if (isEdge) {
+                // 黑色线条
+                sobelPixels[idx] = 0;
+                sobelPixels[idx+1] = 0;
+                sobelPixels[idx+2] = 0;
+                sobelPixels[idx+3] = 255;
+            } else {
+                // 白色背景（不透明）
+                sobelPixels[idx] = 255;
+                sobelPixels[idx+1] = 255;
+                sobelPixels[idx+2] = 255;
+                sobelPixels[idx+3] = 255;
+            }
+        }
+    }
+
+    ctx.putImageData(sobelData, 0, 0);
+    return canvas;
+}
+			
+			// 色彩量化渲染
+			function renderProcessedImage(img, colorCount) {
+				const tempCanvas = document.createElement('canvas');
+				tempCanvas.width = img.width;
+				tempCanvas.height = img.height;
+				const tempCtx = tempCanvas.getContext('2d');
+				tempCtx.drawImage(img, 0, 0);
+				
+				const processedCanvas = processImage(tempCanvas, colorCount);
+				image = processedCanvas;
+				drawImage();
+				updateFloatCanvas();
+			}
+			
+			// K-means色彩量化
+			function processImage(canvas, colorCount) {
+				const ctx = canvas.getContext('2d');
+				const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+				const pixels = imageData.data;
+				const pixelCount = pixels.length / 4;
+				
+				// 采样像素
+				const samplePixels = [];
+				for (let i = 0; i < pixelCount; i++) {
+					if (Math.random() < 0.1) {
+						const idx = i * 4;
+						samplePixels.push([pixels[idx], pixels[idx+1], pixels[idx+2], pixels[idx+3]]);
+					}
+				}
+				
+				// 初始化聚类中心
+				const centroids = [];
+				const used = new Set();
+				while (centroids.length < colorCount) {
+					const idx = Math.floor(Math.random() * samplePixels.length);
+					if (!used.has(idx)) {
+						used.add(idx);
+						centroids.push(samplePixels[idx]);
+					}
+				}
+				
+				// 聚类迭代
+				for (let iter = 0; iter < 8; iter++) {
+					const clusters = Array.from({length: colorCount}, () => ({sum: [0,0,0,0], count: 0}));
+					
+					for (const p of samplePixels) {
+						let minDist = Infinity, best = 0;
+						for (let j = 0; j < colorCount; j++) {
+							const c = centroids[j];
+							const d = (p[0]-c[0])**2 + (p[1]-c[1])**2 + (p[2]-c[2])**2;
+							if (d < minDist) { minDist = d; best = j; }
+						}
+						clusters[best].sum[0] += p[0];
+						clusters[best].sum[1] += p[1];
+						clusters[best].sum[2] += p[2];
+						clusters[best].sum[3] += p[3];
+						clusters[best].count++;
+					}
+					
+					// 更新中心
+					for (let j = 0; j < colorCount; j++) {
+						if (clusters[j].count > 0) {
+							centroids[j] = [
+								Math.round(clusters[j].sum[0] / clusters[j].count),
+								Math.round(clusters[j].sum[1] / clusters[j].count),
+								Math.round(clusters[j].sum[2] / clusters[j].count),
+								Math.round(clusters[j].sum[3] / clusters[j].count)
+							];
+						}
+					}
+				}
+				
+				// 应用到所有像素
+				for (let i = 0; i < pixelCount; i++) {
+					const idx = i * 4;
+					const p = [pixels[idx], pixels[idx+1], pixels[idx+2], pixels[idx+3]];
+					let minDist = Infinity, best = 0;
+					for (let j = 0; j < colorCount; j++) {
+						const c = centroids[j];
+						const d = (p[0]-c[0])**2 + (p[1]-c[1])**2 + (p[2]-c[2])**2;
+						if (d < minDist) { minDist = d; best = j; }
+					}
+					const c = centroids[best];
+					pixels[idx] = c[0];
+					pixels[idx+1] = c[1];
+					pixels[idx+2] = c[2];
+					pixels[idx+3] = c[3];
+				}
+				
+				ctx.putImageData(imageData, 0, 0);
+				return canvas;
+			}
 
             function resizeCanvas() {
                 if (isFullscreen) {
@@ -481,6 +715,7 @@
             }
             
             function loadImage(img) {
+				originalUploadedImage = img; // 保存原始图片
                 isSaveCurrent = false;
                 image = img;
                 resizeCanvas();
