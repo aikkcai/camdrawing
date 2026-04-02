@@ -859,16 +859,20 @@
 
                 if (isLocked) {
                     // 锁定：隐藏两个缩放组
-                    mainZoomGroup.style.display = 'none';
-                    floatZoomGroup.style.display = 'none';
+mainZoomGroup.style.opacity = '0.4';    // 變灰
+mainZoomGroup.style.pointerEvents = 'none';  // 不能點
+floatZoomGroup.style.opacity = '0.4';
+floatZoomGroup.style.pointerEvents = 'none';
                     lockBtn.innerHTML = '<i class="fa fa-unlock lock-icon"></i> <span>解锁</span>';
                     lockBtn.classList.remove('btn-accent');
                     lockBtn.classList.add('btn-danger');
                     crosshairContainer.classList.remove('hidden');
                 } else {
                     // 解锁：恢复显示
-                    mainZoomGroup.style.display = 'flex';
-                    floatZoomGroup.style.display = 'flex';
+mainZoomGroup.style.opacity = '1';
+mainZoomGroup.style.pointerEvents = 'auto';
+floatZoomGroup.style.opacity = '1';
+floatZoomGroup.style.pointerEvents = 'auto';
                     lockBtn.innerHTML = '<i class="fa fa-lock lock-icon"></i> <span>锁定</span>';
                     lockBtn.classList.remove('btn-danger');
                     lockBtn.classList.add('btn-accent');
