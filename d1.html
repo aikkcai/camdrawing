@@ -516,6 +516,67 @@
             });
 			
 			// ==============================
+			// 新增：键盘上下左右键移动图片（非锁定时）
+			// ==============================
+			let keyMoveTimer = null;
+			const MOVE_STEP = 5;   // 单次移动步长
+			const MOVE_DELAY = 50; // 长按连续移动间隔
+
+			function moveImage(dx, dy) {
+				if (!image || isLocked) return;
+				offsetX += dx;
+				offsetY += dy;
+				drawImage();
+				updateFloatCanvas();
+			}
+
+			document.addEventListener('keydown', e => {
+				const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
+				if (isInput || isLocked || !image) return;
+
+				let keyHandled = true;
+				switch (e.key) {
+					case 'ArrowUp':
+						e.preventDefault();
+						moveImage(0, -MOVE_STEP);
+						break;
+					case 'ArrowDown':
+						e.preventDefault();
+						moveImage(0, MOVE_STEP);
+						break;
+					case 'ArrowLeft':
+						e.preventDefault();
+						moveImage(-MOVE_STEP, 0);
+						break;
+					case 'ArrowRight':
+						e.preventDefault();
+						moveImage(MOVE_STEP, 0);
+						break;
+					default:
+						keyHandled = false;
+				}
+
+				// 长按连续移动
+				if (keyHandled && !keyMoveTimer) {
+					keyMoveTimer = setInterval(() => {
+						switch (e.key) {
+							case 'ArrowUp': moveImage(0, -MOVE_STEP); break;
+							case 'ArrowDown': moveImage(0, MOVE_STEP); break;
+							case 'ArrowLeft': moveImage(-MOVE_STEP, 0); break;
+							case 'ArrowRight': moveImage(MOVE_STEP, 0); break;
+						}
+					}, MOVE_DELAY);
+				}
+			});
+
+			document.addEventListener('keyup', e => {
+				if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+					clearInterval(keyMoveTimer);
+					keyMoveTimer = null;
+				}
+			});
+			
+			// ==============================
 			// 新增：图片色彩数量 & 线条画功能
 			// ==============================
 			// 色彩数量切换
