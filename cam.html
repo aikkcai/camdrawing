@@ -3,15 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>图片透视调试版</title>
+    <title>图片透视+双指缩放Webcam</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #1a1a1a; overflow: hidden; font-family: sans-serif; }
         
-        /* 状态监控 */
         #status {
             position: fixed; top: 5px; right: 5px; 
             color: #0f0; font-size: 10px; z-index: 1001; pointer-events: none;
+        }
+
+        /* 視頻縮放容器 */
+        #videoWrap{
+            position: fixed;
+            top: 0;left: 0;
+            width: 100vw;height: 100vh;
+            overflow: hidden;
+            z-index: 0;
+        }
+        #video{
+            position: absolute;
+            top: 50%;left: 50%;
+            transform-origin: center center;
+            min-width: 100%;min-height: 100%;
+            object-fit: cover;
         }
 
         #canvas { position: fixed; top: 0; left: 0; z-index: 1; }
@@ -40,6 +55,12 @@
 <body>
 
 <div id="status">系统准备就绪</div>
+
+<!-- 可雙指縮放/平移 WebCam -->
+<div id="videoWrap">
+    <video id="video" autoplay muted playsinline></video>
+</div>
+
 <canvas id="canvas"></canvas>
 <img id="overlayImg">
 
@@ -50,7 +71,7 @@
         <label>透明度</label>
         <input type="range" id="opacity" min="0" max="1" step="0.01" value="0.7" style="flex:1">
     </div>
-    <p style="font-size: 11px; color: #00ffff; margin-top: 10px;">操作：拖动圆点调整图片透视角度</p>
+
 </div>
 
 <script>
@@ -60,12 +81,23 @@ const upload = document.getElementById('upload');
 const opacitySlider = document.getElementById('opacity');
 const overlayImg = document.getElementById('overlayImg');
 const status = document.getElementById('status');
+const video = document.getElementById('video');
+const videoWrap = document.getElementById('videoWrap');
 
-let video;
 let userImg = null;
 let opacity = 0.7;
 let corners = [];
 let dragIndex = -1;
+
+// ===== WebCam 雙指縮放+平移參數 =====
+let scale = 1;
+let moveX = 0;
+let moveY = 0;
+let startDist = 0;
+let startScale = 1;
+let startX = 0;
+let startY = 0;
+let isTwoFinger = false;
 
 function log(msg) { status.innerText = msg; console.log(msg); }
 
@@ -76,16 +108,14 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// === 1. 尝试启动摄像头 (失败不影响图片) ===
+// === 1. 啟動攝像頭 ===
 async function initCamera() {
     try {
         log("正在请求摄像头...");
         const stream = await navigator.mediaDevices.getUserMedia({ 
             video: { facingMode: "environment" } 
         });
-        video = document.createElement('video');
         video.srcObject = stream;
-        video.play();
         log("摄像头已连接");
     } catch (e) {
         log("摄像头不可用 (仅限图片模式)");
@@ -93,7 +123,59 @@ async function initCamera() {
 }
 initCamera();
 
-// === 2. 上传图片处理 ===
+// 更新視頻變換
+function updateVideoTransform(){
+    video.style.transform = `translate(calc(-50% + ${moveX}px), calc(-50% + ${moveY}px)) scale(${scale})`;
+}
+
+// 計算雙指距離
+function getDist(touches){
+    let dx = touches[1].clientX - touches[0].clientX;
+    let dy = touches[1].clientY - touches[0].clientY;
+    return Math.sqrt(dx*dx + dy*dy);
+}
+
+// ===== 手機雙指縮放、單指平移 =====
+videoWrap.addEventListener('touchstart',(e)=>{
+    const t = e.touches;
+    if(t.length === 2){
+        isTwoFinger = true;
+        startDist = getDist(t);
+        startScale = scale;
+    }else if(t.length === 1){
+        isTwoFinger = false;
+        startX = t[0].clientX - moveX;
+        startY = t[0].clientY - moveY;
+    }
+});
+
+videoWrap.addEventListener('touchmove',(e)=>{
+    e.preventDefault();
+    const t = e.touches;
+    if(t.length === 2){
+        // 雙指縮放
+        let nowDist = getDist(t);
+        scale = startScale * (nowDist / startDist);
+        scale = Math.max(0.5, Math.min(5, scale)); // 限制縮放範圍
+        updateVideoTransform();
+    }else if(t.length === 1 && !isTwoFinger){
+        // 單指拖動鏡頭
+        moveX = t[0].clientX - startX;
+        moveY = t[0].clientY - startY;
+        updateVideoTransform();
+    }
+},{passive:false});
+
+// 電腦滑鼠滾輪縮放
+videoWrap.addEventListener('wheel',(e)=>{
+    e.preventDefault();
+    let delta = e.deltaY > 0 ? -0.08 : 0.08;
+    scale += delta;
+    scale = Math.max(0.5, Math.min(5, scale));
+    updateVideoTransform();
+});
+
+// === 2. 上傳圖片處理 ===
 upload.onchange = function (e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -107,7 +189,6 @@ upload.onchange = function (e) {
             overlayImg.src = event.target.result;
             overlayImg.style.display = 'block';
             
-            // 初始化四个角（屏幕中央）
             const w = 150; 
             const h = (img.height / img.width) * w;
             const cx = canvas.width / 2;
@@ -126,7 +207,7 @@ upload.onchange = function (e) {
     reader.readAsDataURL(file);
 };
 
-// === 3. 交互逻辑 ===
+// === 3. 互動邏輯 ===
 function getPos(e) {
     const t = e.touches ? e.touches[0] : e;
     return { x: t.clientX, y: t.clientY };
@@ -137,7 +218,7 @@ function handleStart(e) {
     for (let i = 0; i < corners.length; i++) {
         const dx = p.x - corners[i].x;
         const dy = p.y - corners[i].y;
-        if (dx * dx + dy * dy < 1600) { // 增大判定范围到 40px
+        if (dx * dx + dy * dy < 1600) {
             dragIndex = i;
             break;
         }
@@ -159,21 +240,11 @@ canvas.addEventListener('touchstart', handleStart, {passive:false});
 window.addEventListener('touchmove', handleMove, {passive:false});
 window.addEventListener('touchend', () => dragIndex = -1);
 
-// === 4. 渲染循环 ===
+// === 4. 渲染循環 ===
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 背景：摄像头
-    if (video && video.readyState >= 2) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    } else {
-        // 无摄像头时显示深灰色背景
-        ctx.fillStyle = "#1a1a1a";
-        ctx.fillRect(0,0,canvas.width, canvas.height);
-    }
-
     if (userImg && corners.length === 4) {
-        // 更新图片状态
         overlayImg.style.opacity = opacitySlider.value;
 
         const m = getPerspective(
@@ -188,7 +259,6 @@ function draw() {
 
         overlayImg.style.transform = `matrix3d(${m.join(',')})`;
 
-        // 绘制 Canvas 辅助 UI
         ctx.strokeStyle = "#00ffff";
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
@@ -212,7 +282,7 @@ function draw() {
 }
 draw();
 
-// === 5. 矩阵算法 ===
+// === 5. 矩陣演算法 ===
 function getPerspective(sx0,sy0,sx1,sy1,sx2,sy2,sx3,sy3,dx0,dy0,dx1,dy1,dx2,dy2,dx3,dy3) {
     const A = [
         [sx0, sy0, 1, 0, 0, 0, -sx0*dx0, -sy0*dx0],
