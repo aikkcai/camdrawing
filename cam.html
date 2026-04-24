@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>图片透视调试版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #1a1a1a; overflow: hidden; font-family: sans-serif; }
+        
+        /* 状态监控 */
+        #status {
+            position: fixed; top: 5px; right: 5px; 
+            color: #0f0; font-size: 10px; z-index: 1001; pointer-events: none;
+        }
+
+        #canvas { position: fixed; top: 0; left: 0; z-index: 1; }
+
+        #overlayImg {
+            position: fixed; top: 0; left: 0;
+            transform-origin: 0 0;
+            pointer-events: none;
+            z-index: 2;
+            display: none;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .ui {
+            position: fixed; bottom: 20px; left: 20px;
+            background: rgba(0,0,0,0.85);
+            color: white; padding: 15px; border-radius: 12px;
+            z-index: 999; width: 280px;
+            border: 1px solid #444;
+        }
+        input[type="file"] { width: 100%; margin-bottom: 15px; }
+        .slider-box { display: flex; align-items: center; gap: 10px; }
+        label { font-size: 14px; white-space: nowrap; }
+    </style>
+</head>
+<body>
+
+<div id="status">系统准备就绪</div>
+<canvas id="canvas"></canvas>
+<img id="overlayImg">
+
+<div class="ui">
+    <p style="margin-bottom:10px; font-size:14px; color:#aaa;">第一步：选择一张图片</p>
+    <input type="file" id="upload" accept="image/*">
+    <div class="slider-box">
+        <label>透明度</label>
+        <input type="range" id="opacity" min="0" max="1" step="0.01" value="0.7" style="flex:1">
+    </div>
+    <p style="font-size: 11px; color: #00ffff; margin-top: 10px;">操作：拖动圆点调整图片透视角度</p>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const upload = document.getElementById('upload');
+const opacitySlider = document.getElementById('opacity');
+const overlayImg = document.getElementById('overlayImg');
+const status = document.getElementById('status');
+
+let video;
+let userImg = null;
+let opacity = 0.7;
+let corners = [];
+let dragIndex = -1;
+
+function log(msg) { status.innerText = msg; console.log(msg); }
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// === 1. 尝试启动摄像头 (失败不影响图片) ===
+async function initCamera() {
+    try {
+        log("正在请求摄像头...");
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment" } 
+        });
+        video = document.createElement('video');
+        video.srcObject = stream;
+        video.play();
+        log("摄像头已连接");
+    } catch (e) {
+        log("摄像头不可用 (仅限图片模式)");
+    }
+}
+initCamera();
+
+// === 2. 上传图片处理 ===
+upload.onchange = function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    log("正在加载图片...");
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+            userImg = img;
+            overlayImg.src = event.target.result;
+            overlayImg.style.display = 'block';
+            
+            // 初始化四个角（屏幕中央）
+            const w = 150; 
+            const h = (img.height / img.width) * w;
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            
+            corners = [
+                { x: cx - w, y: cy - h },
+                { x: cx + w, y: cy - h },
+                { x: cx + w, y: cy + h },
+                { x: cx - w, y: cy + h }
+            ];
+            log("图片加载完成，请拖动点");
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
+// === 3. 交互逻辑 ===
+function getPos(e) {
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX, y: t.clientY };
+}
+
+function handleStart(e) {
+    const p = getPos(e);
+    for (let i = 0; i < corners.length; i++) {
+        const dx = p.x - corners[i].x;
+        const dy = p.y - corners[i].y;
+        if (dx * dx + dy * dy < 1600) { // 增大判定范围到 40px
+            dragIndex = i;
+            break;
+        }
+    }
+}
+
+function handleMove(e) {
+    if (dragIndex === -1) return;
+    e.preventDefault();
+    const p = getPos(e);
+    corners[dragIndex].x = p.x;
+    corners[dragIndex].y = p.y;
+}
+
+canvas.addEventListener('mousedown', handleStart);
+window.addEventListener('mousemove', handleMove);
+window.addEventListener('mouseup', () => dragIndex = -1);
+canvas.addEventListener('touchstart', handleStart, {passive:false});
+window.addEventListener('touchmove', handleMove, {passive:false});
+window.addEventListener('touchend', () => dragIndex = -1);
+
+// === 4. 渲染循环 ===
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 背景：摄像头
+    if (video && video.readyState >= 2) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    } else {
+        // 无摄像头时显示深灰色背景
+        ctx.fillStyle = "#1a1a1a";
+        ctx.fillRect(0,0,canvas.width, canvas.height);
+    }
+
+    if (userImg && corners.length === 4) {
+        // 更新图片状态
+        overlayImg.style.opacity = opacitySlider.value;
+
+        const m = getPerspective(
+            0, 0, userImg.naturalWidth, 0, 
+            userImg.naturalWidth, userImg.naturalHeight, 
+            0, userImg.naturalHeight,
+            corners[0].x, corners[0].y, 
+            corners[1].x, corners[1].y, 
+            corners[2].x, corners[2].y, 
+            corners[3].x, corners[3].y
+        );
+
+        overlayImg.style.transform = `matrix3d(${m.join(',')})`;
+
+        // 绘制 Canvas 辅助 UI
+        ctx.strokeStyle = "#00ffff";
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        corners.forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.closePath();
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        corners.forEach((p, i) => {
+            ctx.fillStyle = (dragIndex === i) ? "#ff4444" : "#00ffff";
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "white";
+            ctx.stroke();
+        });
+    }
+
+    requestAnimationFrame(draw);
+}
+draw();
+
+// === 5. 矩阵算法 ===
+function getPerspective(sx0,sy0,sx1,sy1,sx2,sy2,sx3,sy3,dx0,dy0,dx1,dy1,dx2,dy2,dx3,dy3) {
+    const A = [
+        [sx0, sy0, 1, 0, 0, 0, -sx0*dx0, -sy0*dx0],
+        [0, 0, 0, sx0, sy0, 1, -sx0*dy0, -sy0*dy0],
+        [sx1, sy1, 1, 0, 0, 0, -sx1*dx1, -sy1*dx1],
+        [0, 0, 0, sx1, sy1, 1, -sx1*dy1, -sy1*dy1],
+        [sx2, sy2, 1, 0, 0, 0, -sx2*dx2, -sy2*dx2],
+        [0, 0, 0, sx2, sy2, 1, -sx2*dy2, -sy2*dy2],
+        [sx3, sy3, 1, 0, 0, 0, -sx3*dx3, -sy3*dx3],
+        [0, 0, 0, sx3, sy3, 1, -sx3*dy3, -sy3*dy3]
+    ];
+    const B = [dx0, dy0, dx1, dy1, dx2, dy2, dx3, dy3];
+    const X = gauss(A, B);
+    return [X[0],X[3],0,X[6],X[1],X[4],0,X[7],0,0,1,0,X[2],X[5],0,1];
+}
+
+function gauss(a, b) {
+    const n = a.length;
+    for (let i = 0; i < n; i++) {
+        let max = i;
+        for (let j = i; j < n; j++) if (Math.abs(a[j][i]) > Math.abs(a[max][i])) max = j;
+        [a[i], a[max]] = [a[max], a[i]]; [b[i], b[max]] = [b[max], b[i]];
+        const div = a[i][i];
+        for (let j = i; j < n; j++) a[i][j] /= div;
+        b[i] /= div;
+        for (let j = 0; j < n; j++) {
+            if (j !== i && a[j][i] !== 0) {
+                const f = a[j][i];
+                for (let k = i; k < n; k++) a[j][k] -= f * a[i][k];
+                b[j] -= f * b[i];
+            }
+        }
+    }
+    return b;
+}
+</script>
+</body>
+</html>
