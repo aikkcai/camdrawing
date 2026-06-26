@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>黑白圖片轉 Pattern 工具</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+        background: #111;
+        color: #fff;
+        font-family: "Microsoft YaHei", sans-serif;
+        padding: 20px;
+    }
+    .container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    canvas {
+        border: 2px solid #333;
+        background: #222;
+        image-rendering: pixelated;
+    }
+    .controls {
+        background: rgba(0,0,0,0.85);
+        padding: 20px;
+        border-radius: 12px;
+        margin: 20px 0;
+    }
+    label { display: block; margin: 12px 0 6px; }
+    input[type="range"] { width: 100%; }
+    button {
+        padding: 12px 24px;
+        background: #00cc99;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        margin: 10px 5px;
+    }
+    button:hover { background: #00ffaa; }
+    #output {
+        background: #1a1a1a;
+        padding: 15px;
+        border-radius: 8px;
+        font-family: monospace;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow: auto;
+        margin-top: 15px;
+    }
+    .preview { margin: 15px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>黑白圖片轉 Pattern 工具</h1>
+    <p>上傳一張黑白（或接近黑白）的圖片，轉成可用的 pattern 陣列</p>
+    
+    <input type="file" id="upload" accept="image/*">
+    
+    <div class="controls">
+        <label>輸出寬度：<span id="widthValue">20</span></label>
+        <input type="range" id="width" min="8" max="600" value="600">
+        
+        <label>黑白閾值：<span id="thresholdValue">128</span></label>
+        <input type="range" id="threshold" min="0" max="255" value="128">
+        
+        <button id="generate">生成 Pattern 程式碼</button>
+        <button id="copy">複製程式碼</button>
+    </div>
+
+    <div class="preview">
+        <h3>預覽</h3>
+        <canvas id="canvas" width="400" height="400"></canvas>
+    </div>
+
+    <h3>生成的 Pattern 程式碼（可直接複製貼到水印工具）</h3>
+    <div id="output">點擊「生成 Pattern 程式碼」後會在這裡顯示...</div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const upload = document.getElementById('upload');
+const widthSlider = document.getElementById('width');
+const thresholdSlider = document.getElementById('threshold');
+const widthValue = document.getElementById('widthValue');
+const thresholdValue = document.getElementById('thresholdValue');
+const output = document.getElementById('output');
+
+let currentImageData = null;
+
+function updateValues() {
+    widthValue.textContent = widthSlider.value;
+    thresholdValue.textContent = thresholdSlider.value;
+}
+
+function processImage(img) {
+    const targetWidth = parseInt(widthSlider.value);
+    const ratio = targetWidth / img.width;
+    const targetHeight = Math.round(img.height * ratio);
+    
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    
+    ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+    
+    const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+    const data = imageData.data;
+    
+    // 轉成黑白 + 二值化
+    for (let i = 0; i < data.length; i += 4) {
+        const gray = data[i] * 0.3 + data[i+1] * 0.59 + data[i+2] * 0.11;
+        const binary = gray < parseInt(thresholdSlider.value) ? 0 : 255;
+        data[i] = binary;     // R
+        data[i+1] = binary;   // G
+        data[i+2] = binary;   // B
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+    currentImageData = imageData;
+}
+
+upload.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = ev => {
+        const img = new Image();
+        img.onload = () => processImage(img);
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
+document.getElementById('generate').onclick = () => {
+    if (!currentImageData) {
+        alert("請先上傳圖片！");
+        return;
+    }
+    
+    const w = canvas.width;
+    const h = canvas.height;
+    const data = currentImageData.data;
+    let patternCode = `const pattern = [\n`;
+    
+    for (let y = 0; y < h; y++) {
+        let row = "    [";
+        for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            const gray = data[i];
+            row += (gray < 128 ? "0" : "1") + (x < w-1 ? "," : "");
+        }
+        row += "]" + (y < h-1 ? "," : "");
+        patternCode += row + "\n";
+    }
+    
+    patternCode += "];\n";
+    output.textContent = patternCode;
+};
+
+document.getElementById('copy').onclick = () => {
+    const text = output.textContent;
+    if (text.includes("const pattern")) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert("✅ 已複製到剪貼簿！\n\n可直接貼到之前的水印工具中使用。");
+        });
+    } else {
+        alert("請先生成程式碼！");
+    }
+};
+
+// 即時更新
+[widthSlider, thresholdSlider].forEach(slider => {
+    slider.addEventListener('input', () => {
+        updateValues();
+        if (currentImageData) {
+            // 重新處理當前圖片
+            const img = new Image();
+            img.src = canvas.toDataURL();
+            img.onload = () => processImage(img);
+        }
+    });
+});
+
+updateValues();
+</script>
+</body>
+</html>
