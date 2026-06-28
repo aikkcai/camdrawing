@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>圖片水印工具 - 動態自訂Pattern圖樣</title>
+<style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+        background: #111;
+        color: #fff;
+        font-family: "Microsoft YaHei", sans-serif;
+        overflow: hidden;
+    }
+    #canvas {
+        display: block;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-width: 92%;
+        max-height: 85%;
+        box-shadow: 0 0 30px rgba(0,0,0,0.8);
+    }
+    .ui {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        background: rgba(0,0,0,0.85);
+        padding: 20px;
+        border-radius: 12px;
+        width: 340px;
+        z-index: 100;
+        backdrop-filter: blur(10px);
+        max-height: 96vh;
+        overflow-y: auto;
+    }
+    label {
+        display: block;
+        margin: 12px 0 6px;
+        font-size: 14px;
+    }
+    input[type="range"] {
+        width: 100%;
+    }
+    input[type="color"] {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 10px;
+        border-radius: 6px;
+        border: none;
+    }
+    button {
+        margin-top: 8px;
+        padding: 10px 20px;
+        background: #00cc99;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        width: 100%;
+    }
+    button:hover { background: #00ffaa; }
+    .note {
+        font-size: 12px;
+        color: #aaa;
+        margin-top: 8px;
+    }
+    .divider {
+        height: 1px;
+        background: #444;
+        margin: 18px 0;
+    }
+    .btn-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+    #patternPreviewCanvas {
+        width: 100%;
+        background: #222;
+        border: 1px solid #444;
+        margin: 6px 0;
+        image-rendering: pixelated;
+    }
+    #codeOutput {
+        background: #1a1a1a;
+        padding: 10px;
+        border-radius: 6px;
+        font-family: monospace;
+        white-space: pre-wrap;
+        max-height: 120px;
+        overflow: auto;
+        font-size: 11px;
+        margin-top: 6px;
+    }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div class="ui">
+    <h4>自訂水印圖案(上傳圖轉Pattern)</h4>
+    <input type="file" id="patternUpload" accept="image/*">
+    <div class="note">上傳黑白/簡單圖標生成水印像素圖案</div>
+
+    <label>Pattern寬度：<span id="patWVal">30</span></label>
+    <input type="range" id="patWidth" min="8" max="600" value="600">
+
+    <label>黑白閾值：<span id="threshVal">128</span></label>
+    <input type="range" id="threshold" min="0" max="255" value="128">
+
+    <canvas id="patternPreviewCanvas" width="200" height="200"></canvas>
+
+    <div class="btn-row">
+        <button id="applyPattern">套用圖案</button>
+        <button id="copyPatternCode">複製Pattern代碼</button>
+    </div>
+    <div id="codeOutput">上傳圖片後點擊套用生成代碼</div>
+
+    <div class="divider"></div>
+
+    <h4>底圖上傳</h4>
+    <input type="file" id="upload" accept="image/*"><br>
+
+    <label>顏色：</label>
+    <input type="color" id="color" value="#ffffff">
+
+    <label>大小：<span id="sizeValue">80</span></label>
+    <input type="range" id="size" min="20" max="400" value="400">
+
+    <label>X 位置：<span id="xValue">50</span>%</label>
+    <input type="range" id="posX" min="0" max="100" value="50">
+
+    <label>Y 位置：<span id="yValue">80</span>%</label>
+    <input type="range" id="posY" min="0" max="100" value="50">
+
+    <label>透明度：<span id="opacityValue">0.60</span></label>
+    <input type="range" id="opacity" min="0" max="1" step="0.01" value="1">
+
+    <label>旋轉角度：<span id="rotateValue">0</span>°</label>
+    <input type="range" id="rotate" min="-45" max="45" value="0">
+
+    <button id="download">下載加水印圖片</button>
+</div>
+
+<script>
+let pattern = [
+    [1,1,1,1,1],
+    [1,0,0,0,1],
+    [1,0,0,0,1],
+    [1,0,0,0,1],
+    [1,1,1,1,1]
+];
+let originalImg = null;
+let patternImageData = null;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const patPreviewCanvas = document.getElementById('patternPreviewCanvas');
+const patPreviewCtx = patPreviewCanvas.getContext('2d');
+
+const patternUpload = document.getElementById('patternUpload');
+const patWidthSlider = document.getElementById('patWidth');
+const thresholdSlider = document.getElementById('threshold');
+const patWVal = document.getElementById('patWVal');
+const threshVal = document.getElementById('threshVal');
+const applyBtn = document.getElementById('applyPattern');
+const copyCodeBtn = document.getElementById('copyPatternCode');
+const codeOutput = document.getElementById('codeOutput');
+
+const upload = document.getElementById('upload');
+const colorInput = document.getElementById('color');
+const sizeSlider = document.getElementById('size');
+const posXSlider = document.getElementById('posX');
+const posYSlider = document.getElementById('posY');
+const opacitySlider = document.getElementById('opacity');
+const rotateSlider = document.getElementById('rotate');
+const sizeValue = document.getElementById('sizeValue');
+const xValue = document.getElementById('xValue');
+const yValue = document.getElementById('yValue');
+const opacityValue = document.getElementById('opacityValue');
+const rotateValue = document.getElementById('rotateValue');
+const downloadBtn = document.getElementById('download');
+
+function updateAllValues() {
+    patWVal.textContent = patWidthSlider.value;
+    threshVal.textContent = thresholdSlider.value;
+    sizeValue.textContent = sizeSlider.value;
+    xValue.textContent = posXSlider.value;
+    yValue.textContent = posYSlider.value;
+    opacityValue.textContent = parseFloat(opacitySlider.value).toFixed(2);
+    rotateValue.textContent = rotateSlider.value;
+}
+
+function processPatternSourceImg(img) {
+    const targetW = Number(patWidthSlider.value);
+    const scale = targetW / img.width;
+    const targetH = Math.round(img.height * scale);
+
+    patPreviewCanvas.width = targetW;
+    patPreviewCanvas.height = targetH;
+    patPreviewCtx.drawImage(img, 0, 0, targetW, targetH);
+
+    const imgData = patPreviewCtx.getImageData(0, 0, targetW, targetH);
+    const data = imgData.data;
+    const thresh = Number(thresholdSlider.value);
+
+    for (let i = 0; i < data.length; i += 4) {
+        const gray = data[i] * 0.3 + data[i+1] * 0.59 + data[i+2] * 0.11;
+        const binVal = gray < thresh ? 0 : 255;
+        data[i] = binVal;
+        data[i+1] = binVal;
+        data[i+2] = binVal;
+    }
+    patPreviewCtx.putImageData(imgData, 0, 0);
+    patternImageData = imgData;
+}
+
+function generateNewPattern() {
+    if (!patternImageData) {
+        alert("請先上傳水印圖片！");
+        return false;
+    }
+    const w = patPreviewCanvas.width;
+    const h = patPreviewCanvas.height;
+    const data = patternImageData.data;
+    const newPatternArr = [];
+    let codeStr = `const pattern = [\n`;
+
+    for (let y = 0; y < h; y++) {
+        const row = [];
+        let rowText = "    [";
+        for (let x = 0; x < w; x++) {
+            const idx = (y * w + x) * 4;
+            const px = data[idx] < 128 ? 0 : 1;
+            row.push(px);
+            rowText += px + (x < w - 1 ? "," : "");
+        }
+        newPatternArr.push(row);
+        rowText += "]" + (y < h - 1 ? "," : "");
+        codeStr += rowText + "\n";
+    }
+    codeStr += "];";
+    codeOutput.textContent = codeStr;
+    pattern = newPatternArr;
+    return true;
+}
+
+async function copyPatternCode() {
+    const text = codeOutput.textContent;
+    if (!text.includes("const pattern")) {
+        alert("請先生成Pattern代碼！");
+        return;
+    }
+    await navigator.clipboard.writeText(text);
+    alert("已複製Pattern代碼！");
+}
+
+function drawPattern(x, y, size, color, alpha, angle) {
+    const patternHeight = pattern.length;
+    const patternWidth = pattern[0].length;
+    const scale = size / Math.max(patternWidth, patternHeight);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    
+    for (let py = 0; py < patternHeight; py++) {
+        for (let px = 0; px < patternWidth; px++) {
+            if (pattern[py][px] === 0) {
+                ctx.fillRect(
+                    px * scale - size / 2,
+                    py * scale - size / 2,
+                    scale,
+                    scale
+                );
+            }
+        }
+    }
+    ctx.restore();
+}
+
+function redraw() {
+    if (!originalImg) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(originalImg, 0, 0, canvas.width, canvas.height);
+
+    const x = (posXSlider.value / 100) * canvas.width;
+    const y = (posYSlider.value / 100) * canvas.height;
+    const angle = parseFloat(rotateSlider.value) * Math.PI / 180;
+    const size = parseInt(sizeSlider.value);
+    const color = colorInput.value;
+    const alpha = parseFloat(opacitySlider.value);
+    drawPattern(x, y, size, color, alpha, angle);
+}
+
+upload.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+        const img = new Image();
+        img.onload = () => {
+            originalImg = img;
+            const maxW = window.innerWidth * 0.9;
+            const maxH = window.innerHeight * 0.82;
+            const ratio = Math.min(maxW / img.width, maxH / img.height);
+            canvas.width = Math.floor(img.width * ratio);
+            canvas.height = Math.floor(img.height * ratio);
+            redraw();
+        };
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
+patternUpload.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+        const img = new Image();
+        img.onload = () => processPatternSourceImg(img);
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
+[patWidthSlider, thresholdSlider].forEach(slider => {
+    slider.addEventListener('input', () => {
+        updateAllValues();
+        if (patternImageData) {
+            const tempImg = new Image();
+            tempImg.src = patPreviewCanvas.toDataURL();
+            tempImg.onload = () => processPatternSourceImg(tempImg);
+        }
+    });
+});
+
+[sizeSlider, posXSlider, posYSlider, opacitySlider, rotateSlider, colorInput].forEach(el => {
+    el.addEventListener('input', () => {
+        updateAllValues();
+        redraw();
+    });
+});
+
+applyBtn.onclick = () => {
+    const success = generateNewPattern();
+    if (success) redraw();
+};
+copyCodeBtn.onclick = copyPatternCode;
+
+downloadBtn.onclick = () => {
+    if (!originalImg) {
+        alert("請先上傳底圖！");
+        return;
+    }
+    const link = document.createElement('a');
+    link.download = '加水印圖片.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+};
+
+updateAllValues();
+</script>
+</body>
+</html>
